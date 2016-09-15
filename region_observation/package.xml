@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<package>
+  <name>region_observation</name>
+  <version>1.0.0</version>
+  <description>The region_observation package</description>
+
+  <maintainer email="fxj345@cs.bham.ac.uk">Ferdian Jovan</maintainer>
+
+  <license>MIT</license>
+
+  <author email="fxj345@cs.bham.ac.uk">Ferdian Jovan</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>message_generation</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>mongodb_store</build_depend>
+  <build_depend>rospy</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>soma_manager</build_depend>
+  <build_depend>soma_map_manager</build_depend>
+  <build_depend>visualization_msgs</build_depend>
+  <run_depend>message_runtime</run_depend>
+  <run_depend>geometry_msgs</run_depend>
+  <run_depend>mongodb_store</run_depend>
+  <run_depend>rospy</run_depend>
+  <run_depend>std_msgs</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+  <run_depend>soma_manager</run_depend>
+  <run_depend>soma_map_manager</run_depend>
+  <run_depend>visualization_msgs</run_depend>
+
+  <export>
+  </export>
+</package>

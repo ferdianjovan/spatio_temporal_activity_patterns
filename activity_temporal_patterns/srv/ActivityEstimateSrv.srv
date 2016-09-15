@@ -1,0 +1,7 @@
+time start_time
+time end_time
+bool scale
+---
+string[] region_ids
+string[] activities
+float64[] estimates
