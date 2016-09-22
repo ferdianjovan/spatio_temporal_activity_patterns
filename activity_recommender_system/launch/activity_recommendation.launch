@@ -1,0 +1,18 @@
+<launch>
+    <arg name="soma_config"/>
+    <arg name="with_config_file" default="false"/>
+    <arg name="people_srv" default="/people_counter/people_estimate"/>
+    <arg name="activity_srv" default="/activity_counter/activity_estimate"/>
+
+    <arg name="machine" default="localhost" />
+    <arg name="user" default="" />
+
+    <machine name="$(arg machine)" address="$(arg machine)" env-loader="$(optenv ROS_ENV_LOADER )" user="$(arg user)" default="true"/>
+
+    <node pkg="activity_recommender_system" type="recommender.py" name="arms" output="screen" respawn="false">
+        <param name="soma_config" value="$(arg soma_config)" type="string"/>
+        <param name="with_config_file" value="$(arg with_config_file)" type="boolean"/>
+        <param name="people_srv" value="$(arg people_srv)" type="string"/>
+        <param name="activity_srv" value="$(arg activity_srv)" type="string"/>
+    </node>
+</launch>

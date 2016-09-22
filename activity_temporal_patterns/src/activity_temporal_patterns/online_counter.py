@@ -7,14 +7,14 @@ import datetime
 from activity_simulation.msg import ActivitiesMsg
 from activity_simulation.srv import ActivitiesSrv
 from region_observation.util import get_soma_info
-from periodic_poisson_processes.poisson_processes import PeriodicPoissonProcesses
+from poisson_processes.processes import PeriodicPoissonProcesses
 
 
 class ActivityCounter(object):
 
     def __init__(
-        self, config, window=10, increment=1,
-        periodic_cycle=10080, coll="poisson_processes"
+        self, config, available_activity_srv, activity_topic,
+        window=10, increment=1, periodic_cycle=10080, coll="poisson_processes",
     ):
         rospy.loginfo("Starting activity processes...")
         temp = datetime.datetime.fromtimestamp(rospy.Time.now().secs)
@@ -24,18 +24,13 @@ class ActivityCounter(object):
         self._start_time = rospy.Time(time.mktime(temp.timetuple()))
         self._acquired = False
         # activity subscriber
+        self._uuids = list()
         self.activities = list()
-        act_srv = rospy.ServiceProxy(
-            rospy.get_param("~activity_srv", "/activity_simulation/available_activities"),
-            ActivitiesSrv
-        )
+        act_srv = rospy.ServiceProxy(available_activity_srv, ActivitiesSrv)
         act_srv.wait_for_service()
-        self.available_activities = act_srv()
+        self.available_activities = act_srv().activities
         rospy.loginfo("Known activities: %s" % str(self.available_activities))
-        rospy.Subscriber(
-            rospy.get_param("~activity_topic", "/activity_simulation/activities"),
-            ActivitiesMsg, self._pt_cb, None, 10
-        )
+        rospy.Subscriber(activity_topic, ActivitiesMsg, self._pt_cb, None, 10)
         # get soma-related info
         self.config = config
         self.regions, self.map = get_soma_info(config)
@@ -51,12 +46,15 @@ class ActivityCounter(object):
         }
 
     def _pt_cb(self, msg):
-        if len(msg) == 0:
+        if len(msg.activities) == 0:
             return
         while self._acquired:
             rospy.sleep(0.01)
         self._acquired = True
-        self.activities.extend(msg)
+        for act in msg.activities:
+            if act.uuid not in self._uuids:
+                self._uuids.append(act.uuid)
+                self.activities.append(act)
         self._acquired = False
 
     # scale might not be needed
@@ -71,8 +69,8 @@ class ActivityCounter(object):
                         start_time, end_time, use_upper_confidence=True, scale=scale
                     )}
                 )
-            grand_result.update(result)
-        return result
+            grand_result.update({roi:result})
+        return grand_result
 
     def load_from_db(self):
         for roi in self.process:
@@ -112,6 +110,8 @@ class ActivityCounter(object):
             # observation.until is secs.999999999999
             end_term = activity.end >= self._start_time and activity.end <= current_time
             start_term = activity.start >= self._start_time and activity.start <= current_time
+            # Need to deal with ongoing activities that were started before self._start_time
+            # unfinished_term is wrongly implemented, ignore atm!
             unfinished_term = activity.start < self._start_time and activity.end > current_time
             if end_term or start_term or unfinished_term:
                 if activity.region not in count_per_act_per_region:
