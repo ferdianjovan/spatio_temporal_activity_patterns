@@ -98,6 +98,7 @@ class ActivityRecommender(object):
         task = GetExplorationTasksResponse(
             suggested_wps[:5], suggested_score[:5]
         )
+        rospy.loginfo("Recommended waypoints to visit: %s" % str(task))
         # task = self._check_consent(msg, task)
         return task
 
