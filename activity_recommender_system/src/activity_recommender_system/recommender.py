@@ -107,23 +107,24 @@ class ActivityRecommender(object):
         scale_plan = list()
         for ind, scale in enumerate(scales.estimates):
             scale_plan.append((scale, scales.region_ids[ind]))
-        scale_plan = sorted(scale_plan, key=lambda i: i[0], reverse=True)
-        lower_threshold = scale_plan[0][0] - (self.epsilon * scale_plan[0][0])
-        high_visit = list()
-        for total_scale, roi in scale_plan:
-            if total_scale <= scale_plan[0][0] and total_scale >= lower_threshold:
-                high_visit.append(roi)
-        p = len(high_visit) / float(len(scales.estimates))
-        scale_plan = sorted(scale_plan, key=lambda i: i[0])
-        if random.random() > p:
-            rospy.loginfo("Changing WayPoints to visit unobserved places...")
-            new_visit_plan = list()
-            for i in scale_plan:
-                for j in visit_plan:
-                    if i[1] == j[1]:
-                        new_visit_plan.append(j)
-                        break
-            visit_plan = new_visit_plan
+        if len(scale_plan) != 0:
+            scale_plan = sorted(scale_plan, key=lambda i: i[0], reverse=True)
+            lower_threshold = scale_plan[0][0] - (self.epsilon * scale_plan[0][0])
+            high_visit = list()
+            for total_scale, roi in scale_plan:
+                if total_scale <= scale_plan[0][0] and total_scale >= lower_threshold:
+                    high_visit.append(roi)
+            p = len(high_visit) / float(len(scales.estimates))
+            scale_plan = sorted(scale_plan, key=lambda i: i[0])
+            if random.random() > p:
+                rospy.loginfo("Changing WayPoints to visit unobserved places...")
+                new_visit_plan = list()
+                for i in scale_plan:
+                    for j in visit_plan:
+                        if i[1] == j[1]:
+                            new_visit_plan.append(j)
+                            break
+                visit_plan = new_visit_plan
         return visit_plan
 
     # def _check_consent(self, msg, task):

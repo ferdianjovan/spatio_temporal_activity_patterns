@@ -64,6 +64,7 @@ class PeopleCounterService(object):
             rois.append(roi)
             rates.append(estimate)
         estimate = PeopleEstimateSrvResponse(rois, rates)
+        rospy.loginfo("People estimate: %s" % str(estimate))
         return estimate
 
     def spin(self):

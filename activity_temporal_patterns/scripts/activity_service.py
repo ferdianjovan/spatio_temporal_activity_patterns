@@ -67,7 +67,9 @@ class ActivityCounterService(object):
             rois.append(roi)
             counts.append(val)
             activities.append(act)
-        return ActivityEstimateSrvResponse(rois, activities, counts)
+        estimate = ActivityEstimateSrvResponse(rois, activities, counts)
+        rospy.loginfo("Activity estimate: %s" % estimate)
+        return estimate
 
     def spin(self):
         rospy.loginfo("Continuously observing activities...")
