@@ -2,7 +2,8 @@
     <arg name="soma_config"/>
     <arg name="with_config_file" default="false"/>
     <arg name="people_srv" default="/people_counter/people_estimate"/>
-    <arg name="activity_srv" default="/activity_counter/activity_estimate"/>
+    <!-- <arg name="activity_srv" default="/activity_counter/activity_estimate"/> -->
+    <arg name="activity_srv" default=""/>
 
     <arg name="machine" default="localhost" />
     <arg name="user" default="" />

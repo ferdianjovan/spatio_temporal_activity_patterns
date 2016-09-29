@@ -30,16 +30,15 @@ class ActivityRecommender(object):
         )
         self.people_srv.wait_for_service()
         rospy.sleep(0.1)
-        rospy.loginfo(
-            "Connecting to %s service..." % rospy.get_param(
-                "~activity_srv", "/activity_counter/activity_estimate"
+        act_srv_name = rospy.get_param("~activity_srv", "")
+        self.act_srv = None
+        if act_srv_name != "":
+            rospy.loginfo("Connecting to %s service..." % act_srv_name)
+            self.act_srv = rospy.ServiceProxy(
+                rospy.get_param("~activity_srv", "/activity_counter/activity_estimate"),
+                ActivityEstimateSrv
             )
-        )
-        self.act_srv = rospy.ServiceProxy(
-            rospy.get_param("~activity_srv", "/activity_counter/activity_estimate"),
-            ActivityEstimateSrv
-        )
-        self.act_srv.wait_for_service()
+            self.act_srv.wait_for_service()
         # self.poisson_consent = PoissonWrapper(
         #     rospy.get_param("~consent_topic", "/skeleton_data/consent_ret"),
         #     String, "data", "nothing", dict(), time_window*3, time_increment, 1440

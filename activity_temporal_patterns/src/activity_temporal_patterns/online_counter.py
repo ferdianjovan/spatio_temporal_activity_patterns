@@ -69,7 +69,7 @@ class ActivityCounter(object):
                         start_time, end_time, use_upper_confidence=True, scale=scale
                     )}
                 )
-            grand_result.update({roi:result})
+            grand_result.update({roi: result})
         return grand_result
 
     def load_from_db(self):

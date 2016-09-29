@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(activity_temporal_patterns)
 
 find_package(catkin REQUIRED COMPONENTS
-  activity_simulation
+  # activity_simulation
   region_observation
   rospy
   spectral_poisson_processes
@@ -39,7 +39,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES activity_temporal_patterns
-  CATKIN_DEPENDS activity_simulation region_observation rospy spectral_poisson_processes std_msgs message_runtime
+  CATKIN_DEPENDS region_observation rospy spectral_poisson_processes std_msgs message_runtime
 #  DEPENDS system_lib
 )
 
