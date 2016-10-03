@@ -4,6 +4,7 @@
     <arg name="people_srv" default="/people_counter/people_estimate"/>
     <!-- <arg name="activity_srv" default="/activity_counter/activity_estimate"/> -->
     <arg name="activity_srv" default=""/>
+    <arg name="exploration_method" default="ubc"/>  <!-- upper bound confidence (ubc), greedy epsilon (greedy) -->
 
     <arg name="machine" default="localhost" />
     <arg name="user" default="" />
@@ -15,5 +16,6 @@
         <param name="with_config_file" value="$(arg with_config_file)" type="boolean"/>
         <param name="people_srv" value="$(arg people_srv)" type="string"/>
         <param name="activity_srv" value="$(arg activity_srv)" type="string"/>
+        <param name="exploration_method" value="$(arg exploration_method")" type="string"/>
     </node>
 </launch>

@@ -5,13 +5,14 @@ import yaml
 import rospy
 import roslib
 import random
-# from std_msgs.msg import String
 from region_observation.util import is_intersected
 from strands_navigation_msgs.msg import TopologicalMap
 from people_temporal_patterns.srv import PeopleEstimateSrv
+from activity_recommender_system.srv import ChangeMethodSrv
 from strands_exploration_msgs.srv import GetExplorationTasks
 from activity_temporal_patterns.srv import ActivityEstimateSrv
 from region_observation.util import robot_view_cone, get_soma_info
+from activity_recommender_system.srv import ChangeMethodSrvResponse
 from strands_exploration_msgs.srv import GetExplorationTasksResponse
 
 
@@ -19,6 +20,7 @@ class ActivityRecommender(object):
 
     def __init__(self, name):
         rospy.loginfo("Initiating activity recommender system...")
+        self.exploration_method = rospy.get_param("~exploration_method", "ubc")
         rospy.loginfo(
             "Connecting to %s service..." % rospy.get_param(
                 "~people_srv", "/people_counter/people_estimate"
@@ -57,12 +59,22 @@ class ActivityRecommender(object):
             "Region ids and their nearest waypoints: %s" % str(self.region_wps)
         )
         rospy.sleep(0.1)
-        self.service = rospy.Service(
+        rospy.Service(
             '%s/activity_rcmd_srv' % rospy.get_name(),
             GetExplorationTasks, self._srv_cb
         )
+        rospy.Service(
+            '%s/change_method_srv' % rospy.get_name(),
+            ChangeMethodSrv, self._change_srv_cb
+        )
         rospy.loginfo("%s/activity_rcmd_srv service is ready..." % rospy.get_name())
         rospy.sleep(0.1)
+
+    def _change_srv_cb(self, msg):
+        rospy.loginfo("An exploration method change is requested")
+        rospy.loginfo("Changing to %s method..." % msg.exploration_method)
+        self.exploration_method = msg.exploration_method
+        return ChangeMethodSrvResponse()
 
     def _srv_cb(self, msg):
         rospy.loginfo(
@@ -76,9 +88,10 @@ class ActivityRecommender(object):
                 people_estimates.estimates)
         ]
         visit_plan = sorted(visit_plan, key=lambda i: i[0], reverse=True)
-        visit_plan = self._check_visit_plan(
-            msg.start_time, msg.end_time, visit_plan
-        )
+        if self.exploration_method != "ubc":
+            visit_plan = self._check_visit_plan(
+                msg.start_time, msg.end_time, visit_plan
+            )
         suggested_wps = list()
         suggested_score = list()
         for i in visit_plan:

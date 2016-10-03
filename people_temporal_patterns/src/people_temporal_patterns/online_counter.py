@@ -15,18 +15,18 @@ from region_observation.util import create_line_string, is_intersected, get_soma
 class PeopleCounter(object):
 
     def __init__(
-        self, config, window=10, increment=1,
-        periodic_cycle=10080, coll="poisson_processes"
+        self, config, window=10, increment=1, periodic_cycle=10080
     ):
         temp = datetime.datetime.fromtimestamp(rospy.Time.now().secs)
         temp = datetime.datetime(
             temp.year, temp.month, temp.day, temp.hour, temp.minute, 0
         )
         self._start_time = rospy.Time(time.mktime(temp.timetuple()))
+        self._is_stop_requested = False
         self._acquired = False
         # trajectories subscriber
         self.trajectories = list()
-        rospy.Subscriber(
+        self._traj_subs = rospy.Subscriber(
             rospy.get_param("~trajectory_topic", "/people_trajectory/trajectories/complete"),
             Trajectories, self._pt_cb, None, 10
         )
@@ -42,6 +42,17 @@ class PeopleCounter(object):
         self.process = {
             roi: SpectralPoissonProcesses(window, increment, periodic_cycle) for roi in self.regions.keys()
         }
+
+    def request_stop_update(self):
+        self._is_stop_requested = True
+        self._traj_subs.unregister()
+
+    def request_continue_update(self):
+        self._is_stop_requested = False
+        self._traj_subs = rospy.Subscriber(
+            rospy.get_param("~trajectory_topic", "/people_trajectory/trajectories/complete"),
+            Trajectories, self._pt_cb, None, 10
+        )
 
     def retrieve_from_to(self, start_time, end_time, scale=False):
         result = dict()
@@ -80,7 +91,7 @@ class PeopleCounter(object):
         self._acquired = False
 
     def continuous_update(self):
-        while not rospy.is_shutdown():
+        while not rospy.is_shutdown() and not self._is_stop_requested:
             delta = (rospy.Time.now() - self._start_time)
             if delta > rospy.Duration(self.time_window*60):
                 # rospy.loginfo("Updating poisson processes for each region...")

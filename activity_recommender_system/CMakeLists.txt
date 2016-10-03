@@ -5,6 +5,7 @@ find_package(catkin REQUIRED COMPONENTS
   region_observation
   roslib
   rospy
+  std_msgs
   strands_exploration_msgs
   strands_navigation_msgs
   people_temporal_patterns
@@ -24,12 +25,10 @@ catkin_python_setup()
 #   Message2.msg
 # )
 
-## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+  FILES
+  ChangeMethodSrv.srv
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -38,11 +37,10 @@ catkin_python_setup()
 #   Action2.action
 # )
 
-## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   strands_exploration_msgs#   strands_navigation_msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
 
 ###################################
 ## catkin specific configuration ##
@@ -51,7 +49,7 @@ catkin_python_setup()
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES activity_recommender_system
-  CATKIN_DEPENDS region_observation roslib rospy strands_exploration_msgs strands_navigation_msgs people_temporal_patterns activity_temporal_patterns
+  CATKIN_DEPENDS region_observation roslib rospy strands_exploration_msgs strands_navigation_msgs people_temporal_patterns activity_temporal_patterns std_msgs
 #  DEPENDS system_lib
 )
 

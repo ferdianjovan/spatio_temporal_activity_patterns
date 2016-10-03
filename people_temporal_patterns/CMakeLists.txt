@@ -7,6 +7,7 @@ find_package(catkin REQUIRED COMPONENTS
   roslib
   rospy
   std_msgs
+  std_srvs
   message_generation
   spectral_poisson_processes
 )
@@ -40,7 +41,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES people_temporal_patterns
-  CATKIN_DEPENDS human_trajectory region_observation roslib rospy spectral_poisson_processes std_msgs message_runtime
+  CATKIN_DEPENDS human_trajectory region_observation roslib rospy spectral_poisson_processes std_msgs message_runtime std_srvs
 #  DEPENDS system_lib
 )
 
