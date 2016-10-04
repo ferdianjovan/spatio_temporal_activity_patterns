@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-import std_srvs.srv import Empty, EmptyResponse
+from std_srvs.srv import Empty, EmptyResponse
 from people_temporal_patterns.online_counter import PeopleCounter
 from people_temporal_patterns.srv import PeopleEstimateSrv, PeopleEstimateSrvResponse
 
