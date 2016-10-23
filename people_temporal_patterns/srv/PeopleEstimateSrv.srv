@@ -1,5 +1,6 @@
 time start_time
 time end_time
+bool upper_bound
 bool scale
 ---
 string[] region_ids

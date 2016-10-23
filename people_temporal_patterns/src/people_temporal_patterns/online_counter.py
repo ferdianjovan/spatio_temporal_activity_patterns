@@ -6,10 +6,12 @@ import math
 import rospy
 import argparse
 import datetime
+import threading
 from human_trajectory.msg import Trajectories
 from spectral_processes.processes import SpectralPoissonProcesses
 from region_observation.observation_proxy import RegionObservationProxy
 from region_observation.util import create_line_string, is_intersected, get_soma_info
+from people_temporal_patterns.offline_counter import PeopleCounter as OffPeopleCounter
 
 
 class PeopleCounter(object):
@@ -23,6 +25,7 @@ class PeopleCounter(object):
         )
         self._start_time = rospy.Time(time.mktime(temp.timetuple()))
         self._is_stop_requested = False
+        self._is_stopped = False
         self._acquired = False
         # trajectories subscriber
         self.trajectories = list()
@@ -38,6 +41,7 @@ class PeopleCounter(object):
         rospy.loginfo("Time window is %d minute with increment %d minute" % (window, increment))
         self.time_window = window
         self.time_increment = increment
+        self.periodic_cycle = periodic_cycle
         rospy.loginfo("Creating a periodic cycle every %d minutes" % periodic_cycle)
         self.process = {
             roi: SpectralPoissonProcesses(window, increment, periodic_cycle) for roi in self.regions.keys()
@@ -47,6 +51,10 @@ class PeopleCounter(object):
         self._is_stop_requested = True
         self._traj_subs.unregister()
 
+    def wait_to_stop(self):
+        while not self._is_stopped:
+            rospy.sleep(0.1)
+
     def request_continue_update(self):
         self._is_stop_requested = False
         self._traj_subs = rospy.Subscriber(
@@ -54,13 +62,16 @@ class PeopleCounter(object):
             Trajectories, self._pt_cb, None, 10
         )
 
-    def retrieve_from_to(self, start_time, end_time, scale=False):
+    def retrieve_from_to(
+        self, start_time, end_time, use_upper_confidence=False, scale=False
+    ):
         result = dict()
         for roi, poisson in self.process.iteritems():
             result.update(
                 # use upper confidence rate value
                 {roi: poisson.retrieve(
-                    start_time, end_time, use_upper_confidence=True, scale=scale
+                    start_time, end_time,
+                    use_upper_confidence=use_upper_confidence, scale=scale
                 )}
             )
         return result
@@ -91,12 +102,30 @@ class PeopleCounter(object):
         self._acquired = False
 
     def continuous_update(self):
+        self._is_stopped = False
+        updating_region_time = rospy.Time.now()
+        _is_updating_region = False
+        _thread = None
         while not rospy.is_shutdown() and not self._is_stop_requested:
-            delta = (rospy.Time.now() - self._start_time)
+            now = rospy.Time.now()
+            delta = (now - self._start_time)
             if delta > rospy.Duration(self.time_window*60):
-                # rospy.loginfo("Updating poisson processes for each region...")
                 self.update()
-            rospy.sleep(1)
+            if datetime.datetime.fromtimestamp(now.secs).hour == 0:
+                if not _is_updating_region:
+                    updating_region_time = now
+                    _thread = threading.Thread(target=self.update_regions)
+                    _thread.start()
+                    _is_updating_region = True
+                    rospy.sleep(1)
+            if _thread is not None and _thread.isAlive():
+                if (now - updating_region_time).secs >= 3600:
+                    updating_region_time = now
+                    _thread.join(1)
+                    if not _thread.isAlive():
+                        _is_updating_region = False
+                        _thread = None
+        self._is_stopped = True
 
     def update(self):
         region_observations = self.obs_proxy.load_msg(
@@ -175,6 +204,29 @@ class PeopleCounter(object):
         )
         # rospy.loginfo("Extrapolate count %d by %.2f" % (count, multiplier_estimator))
         return math.ceil(multiplier_estimator * count)
+
+    def update_regions(self):
+        regions, _ = get_soma_info(self.config)
+        new_regions = {
+            roi: region for roi, region in regions.iteritems() if roi not in self.regions
+        }
+        if new_regions == dict():
+            rospy.loginfo("No new region is found, skipping next procedures...")
+        else:
+            rospy.loginfo(
+                "New regions %s are found, proceeding to next procedures..." % str(
+                    new_regions.keys()
+                )
+            )
+            self.regions.update(new_regions)
+            opc = OffPeopleCounter(
+                self.config, self.time_window, self.time_increment, self.periodic_cycle, True
+            )
+            opc.construct_process_from_trajectory(
+                self._start_time, rospy.Time.now(), new_regions.keys()
+            )
+            for roi in new_regions:
+                self.process.update({roi: opc.process[roi])
 
 
 if __name__ == '__main__':

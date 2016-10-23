@@ -78,22 +78,27 @@ class PeopleCounter(object):
         rospy.loginfo("Reconstructing periodic cycle for region %s" % region)
         self.process[region].reconstruct_periodic_cycle(data)
 
-    def construct_process_from_trajectory(self, start_time, end_time):
+    def construct_process_from_trajectory(self, start_time, end_time, regions=list()):
         count_per_region = self.region_people_counter.get_people_per_region(
             start_time, end_time
         )
+        if regions != list():
+            count_per_region = {
+                roi: val for roi, val in count_per_region.iteritems() if roi in regions
+            }
         rospy.loginfo("Updating the poisson processes for each region")
         for roi, time_count in count_per_region.iteritems():
             ordered = sorted(time_count.keys())
             for start_time in ordered:
                 self.process[roi].update(start_time, time_count[start_time])
         for roi, process in self.process.iteritems():
-            cond = process._init_time is not None
-            cond = cond and (
-                self._start_time is None or self._start_time > process._init_time
-            )
-            if cond:
-                self._start_time = process._init_time
+            if regions == list() or roi in regions:
+                cond = process._init_time is not None
+                cond = cond and (
+                    self._start_time is None or self._start_time > process._init_time
+                )
+                if cond:
+                    self._start_time = process._init_time
 
     def get_rate_rate_err_per_region(self, region):
         result = self.process[region].get_one_periodic_rate()

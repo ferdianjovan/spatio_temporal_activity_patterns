@@ -34,7 +34,8 @@ class PeopleCounterService(object):
 
     def _restart_srv_cb(self, msg):
         self.counter.request_stop_update()
-        rospy.sleep(3)
+        self.counter.wait_to_stop()
+        rospy.sleep(1)
         self.counter = PeopleCounter(
             rospy.get_param("~soma_config", "activity_exploration"),
             rospy.get_param("~time_window", 10),
@@ -63,7 +64,7 @@ class PeopleCounterService(object):
             # rois_rates = self.counter.retrieve_from_to(msg.start_time, msg.end_time, msg.scale)
             rois_people = self.counter.retrieve_from_to(
                 # scale might not be needed
-                start, start + self.time_window, msg.scale
+                start, start + self.time_window, msg.upper_bound, msg.scale
             )
             for roi, estimates in rois_people.iteritems():
                 if len(estimates) == 0:
@@ -85,13 +86,13 @@ class PeopleCounterService(object):
         rospy.loginfo("People estimate: %s" % str(estimate))
         return estimate
 
-    def spin(self):
+    def continuous_update(self):
         rospy.loginfo("Continuously counting people...")
         self.counter.continuous_update()
-        rospy.spin()
 
 
 if __name__ == '__main__':
     rospy.init_node("people_counter")
     pcs = PeopleCounterService()
-    pcs.spin()
+    pcs.continuous_update()
+    rospy.spin()
