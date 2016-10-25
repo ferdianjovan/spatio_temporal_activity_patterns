@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import time
 import rospy
 import datetime
 from region_observation.msg import Observation
@@ -44,6 +45,12 @@ class RegionObservationProxy(object):
         return roi_observation, total_observation
 
     def load_msg(self, start_time, end_time, roi="", minute_increment=1):
+        new_start = datetime.datetime.fromtimestamp(start_time.secs)
+        new_start = datetime.datetime(
+            new_start.year, new_start.month, new_start.day, new_start.hour,
+            new_start.minute
+        )
+        start_time = rospy.Time(time.mktime(new_start.timetuple()))
         end_time = end_time - rospy.Duration(minute_increment * 60, 0)
         query = {
             "soma": self.soma_map, "soma_config": self.soma_config,
