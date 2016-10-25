@@ -109,7 +109,7 @@ class PeopleCounter(object):
         while not rospy.is_shutdown() and not self._is_stop_requested:
             now = rospy.Time.now()
             delta = (now - self._start_time)
-            if delta > rospy.Duration(self.time_window*60):
+            if delta > rospy.Duration(self.time_window*60+60):
                 self.update()
             if datetime.datetime.fromtimestamp(now.secs).hour == 0:
                 if not _is_updating_region:
@@ -128,8 +128,14 @@ class PeopleCounter(object):
         self._is_stopped = True
 
     def update(self):
+        new_end = datetime.datetime.fromtimestamp(rospy.Time.now().secs)
+        new_end = datetime.datetime(
+            new_end.year, new_end.month, new_end.day, new_end.hour,
+            new_end.minute
+        )
+        end_time = rospy.Time(time.mktime(new_end.timetuple()))
         region_observations = self.obs_proxy.load_msg(
-            self._start_time, rospy.Time.now(), minute_increment=self.time_increment
+            self._start_time, end_time, minute_increment=self.time_increment
         )
         temp = copy.deepcopy(self.trajectories)
         # rospy.loginfo("Total trajectories counted so far is %d." % len(temp))
