@@ -5,6 +5,7 @@ import yaml
 import rospy
 import roslib
 import random
+from std_srvs.srv import Empty
 from region_observation.util import is_intersected
 from strands_navigation_msgs.msg import TopologicalMap
 from people_temporal_patterns.srv import PeopleEstimateSrv
@@ -31,7 +32,12 @@ class ActivityRecommender(object):
             PeopleEstimateSrv
         )
         self.people_srv.wait_for_service()
-        rospy.sleep(0.1)
+
+        srv_name = rospy.get_param("~people_srv", "/people_counter/people_estimate")
+        srv_name = srv_name.split("/")[1]
+        self.people_restart_srv = rospy.ServiceProxy("/"+srv_name+"/restart", Empty)
+        self.people_restart_srv.wait_for_service()
+
         act_srv_name = rospy.get_param("~activity_srv", "")
         self.act_srv = None
         if act_srv_name != "":
@@ -74,6 +80,8 @@ class ActivityRecommender(object):
         rospy.loginfo("An exploration method change is requested")
         rospy.loginfo("Changing to %s method..." % msg.exploration_method)
         self.exploration_method = msg.exploration_method
+        rospy.loginfo("Restarting counting process...")
+        self.people_restart_srv()
         return ChangeMethodSrvResponse()
 
     def _srv_cb(self, msg):
@@ -81,7 +89,8 @@ class ActivityRecommender(object):
             "Got a request to find waypoints to visit between %d and %d"
             % (msg.start_time.secs, msg.end_time.secs)
         )
-        people_estimates = self.people_srv(msg.start_time, msg.end_time, False)
+        is_ubc = self.exploration_method == "ubc"
+        people_estimates = self.people_srv(start_time, end_time, is_ubc, False)
         visit_plan = list()
         visit_plan = [
             (estimate, people_estimates.region_ids[ind]) for ind, estimate in enumerate(
@@ -115,7 +124,7 @@ class ActivityRecommender(object):
         return task
 
     def _check_visit_plan(self, start_time, end_time, visit_plan):
-        scales = self.people_srv(start_time, end_time, True)
+        scales = self.people_srv(start_time, end_time, False, True)
         scale_plan = list()
         for ind, scale in enumerate(scales.estimates):
             scale_plan.append((scale, scales.region_ids[ind]))
