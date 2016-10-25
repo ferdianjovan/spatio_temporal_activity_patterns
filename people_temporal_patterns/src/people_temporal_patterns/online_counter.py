@@ -138,16 +138,11 @@ class PeopleCounter(object):
             self._start_time, end_time, minute_increment=self.time_increment
         )
         temp = copy.deepcopy(self.trajectories)
-        # rospy.loginfo("Total trajectories counted so far is %d." % len(temp))
+        rospy.loginfo("Total trajectories counted so far is %d." % len(temp))
 
         used_trajectories = list()
         count_per_region = dict()
         for observation in region_observations:
-            # rospy.loginfo(
-            #     "Observation in region %s was for %d duration from %d to %d." % (
-            #         observation.region_id, observation.duration.secs, observation.start_from.secs, observation.until.secs
-            #     )
-            # )
             count = 0
             for trajectory in temp:
                 points = [
@@ -163,7 +158,8 @@ class PeopleCounter(object):
                     conditions = conditions and trajectory.end_time <= observation.until
                     if conditions:
                         count += 1
-                        used_trajectories.append(trajectory)
+                        if trajectory.end_time < self._start_time + rospy.Duration(self.time_increment*60):
+                            used_trajectories.append(trajectory)
             if count > 0 or observation.duration.secs >= 59:
                 count = self._extrapolate_count(observation.duration, count)
                 if observation.region_id not in count_per_region.keys():

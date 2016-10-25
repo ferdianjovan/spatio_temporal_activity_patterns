@@ -15,6 +15,7 @@ class SpectralPoissonProcesses(PeriodicPoissonProcesses):
         self, time_window=10, minute_increment=1, periodic_cycle=10080,
         max_periodic_cycle=40320, coll="spectral_processes"
     ):
+        self._is_updated = False
         self._spectral_process = None
         self._update_count = 0
         self._init_cycle = periodic_cycle
@@ -43,6 +44,7 @@ class SpectralPoissonProcesses(PeriodicPoissonProcesses):
         super(SpectralPoissonProcesses, self).update(start_time, count)
         delta_now = (start_time - self._init_time)
         delta_periodic = self.minute_increment * (self._update_count * self.periodic_cycle)
+        self._is_updated = True
         if delta_now >= delta_periodic:
             self._update_count += 1
             self._fourier_reconstruct()
@@ -71,19 +73,21 @@ class SpectralPoissonProcesses(PeriodicPoissonProcesses):
         self._spectral_process._prev_init = self._prev_init
         self._spectral_process.poisson = dict()
         for idx, rate in enumerate(rates):
-            if rate != Lambda().get_rate():
+            if rate > Lambda().get_rate():
                 lmbda = Lambda()
                 lmbda.reconstruct(rate, scales[times[idx]])
                 self._spectral_process.poisson[times[idx]] = lmbda
             else:
                 self._spectral_process.poisson[times[idx]] = Lambda()
+        self._is_updated = False
 
     def retrieve(
         self, start_time, end_time, use_upper_confidence=False,
         use_lower_confidence=False, scale=False
     ):
         if self._init_time is not None:
-            self._fourier_reconstruct()
+            if self._is_updated:
+                self._fourier_reconstruct()
             return self._spectral_process.retrieve(
                 start_time, end_time, use_upper_confidence,
                 use_lower_confidence, scale
