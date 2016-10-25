@@ -71,17 +71,19 @@ class SpectralPoissonProcesses(PeriodicPoissonProcesses):
         self._spectral_process._prev_init = self._prev_init
         self._spectral_process.poisson = dict()
         for idx, rate in enumerate(rates):
-            lmbda = Lambda()
-            lmbda.reconstruct(rate, scales[times[idx]])
-            self._spectral_process.poisson[times[idx]] = lmbda
+            if rate != Lambda().get_rate():
+                lmbda = Lambda()
+                lmbda.reconstruct(rate, scales[times[idx]])
+                self._spectral_process.poisson[times[idx]] = lmbda
+            else:
+                self._spectral_process.poisson[times[idx]] = Lambda()
 
     def retrieve(
         self, start_time, end_time, use_upper_confidence=False,
         use_lower_confidence=False, scale=False
     ):
         if self._init_time is not None:
-            if self._spectral_process is None:
-                self._fourier_reconstruct()
+            self._fourier_reconstruct()
             return self._spectral_process.retrieve(
                 start_time, end_time, use_upper_confidence,
                 use_lower_confidence, scale
