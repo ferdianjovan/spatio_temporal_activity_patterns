@@ -90,7 +90,7 @@ class ActivityRecommender(object):
             % (msg.start_time.secs, msg.end_time.secs)
         )
         is_ubc = self.exploration_method == "ubc"
-        people_estimates = self.people_srv(start_time, end_time, is_ubc, False)
+        people_estimates = self.people_srv(msg.start_time, msg.end_time, is_ubc, False)
         visit_plan = list()
         visit_plan = [
             (estimate, people_estimates.region_ids[ind]) for ind, estimate in enumerate(
