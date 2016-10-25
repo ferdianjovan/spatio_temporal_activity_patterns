@@ -226,7 +226,7 @@ class PeopleCounter(object):
                 self._start_time, rospy.Time.now(), new_regions.keys()
             )
             for roi in new_regions:
-                self.process.update({roi: opc.process[roi])
+                self.process.update({roi: opc.process[roi]})
 
 
 if __name__ == '__main__':
