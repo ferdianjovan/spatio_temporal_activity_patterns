@@ -6,7 +6,7 @@ import numpy as np
 from poisson_processes.rate import Lambda
 from poisson_processes.processes import PeriodicPoissonProcesses
 from spectral_processes.util import obtain_periodic_cycle, fourier_reconstruct
-from spectral_processes.util import _get_significant_frequencies, find_n_nearest
+from spectral_processes.util import _get_significant_frequencies, find_n_nearest, rectify_wave
 
 
 class SpectralPoissonProcesses(PeriodicPoissonProcesses):
@@ -58,6 +58,7 @@ class SpectralPoissonProcesses(PeriodicPoissonProcesses):
         for key in keys:
             rates.append(poisson[key])
         rates, _ = fourier_reconstruct(rates)
+        rates = rectify_wave(rates, low_thres=Lambda().get_rate())
         scales = super(SpectralPoissonProcesses, self).retrieve(
             start_time, end_time, scale=True
         )
