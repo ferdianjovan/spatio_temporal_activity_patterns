@@ -1,0 +1,6 @@
+time start_time
+time end_time
+---
+string[] waypoints 
+string[] regions
+float64[] scores

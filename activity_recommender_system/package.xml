@@ -15,7 +15,6 @@
   <build_depend>std_msgs</build_depend>
   <build_depend>roslib</build_depend>
   <build_depend>rospy</build_depend>
-  <build_depend>strands_exploration_msgs</build_depend>
   <build_depend>strands_navigation_msgs</build_depend>
   <build_depend>people_temporal_patterns</build_depend>
   <build_depend>activity_temporal_patterns</build_depend>
@@ -23,7 +22,6 @@
   <run_depend>std_msgs</run_depend>
   <run_depend>roslib</run_depend>
   <run_depend>rospy</run_depend>
-  <run_depend>strands_exploration_msgs</run_depend>
   <run_depend>strands_navigation_msgs</run_depend>
   <run_depend>people_temporal_patterns</run_depend>
   <run_depend>activity_temporal_patterns</run_depend>

@@ -5,16 +5,21 @@ import yaml
 import rospy
 import roslib
 import random
+
 from std_srvs.srv import Empty
-from region_observation.util import is_intersected
+
 from strands_navigation_msgs.msg import TopologicalMap
-from people_temporal_patterns.srv import PeopleEstimateSrv
-from activity_recommender_system.srv import ChangeMethodSrv
-from strands_exploration_msgs.srv import GetExplorationTasks
-from activity_temporal_patterns.srv import ActivityEstimateSrv
+
+from region_observation.util import is_intersected
 from region_observation.util import robot_view_cone, get_soma_info
+
+from people_temporal_patterns.srv import PeopleEstimateSrv
+from activity_temporal_patterns.srv import ActivityEstimateSrv
+
+from activity_recommender_system.srv import ChangeMethodSrv
+from activity_recommender_system.srv import GetExplorationTasks
 from activity_recommender_system.srv import ChangeMethodSrvResponse
-from strands_exploration_msgs.srv import GetExplorationTasksResponse
+from activity_recommender_system.srv import GetExplorationTasksResponse
 
 
 class ActivityRecommender(object):
@@ -103,6 +108,7 @@ class ActivityRecommender(object):
             )
         suggested_wps = list()
         suggested_score = list()
+        suggested_regions = list()
         for i in visit_plan:
             if i[1] in self.region_wps:
                 if self.region_wps[i[1]] in suggested_wps:
@@ -110,14 +116,15 @@ class ActivityRecommender(object):
                         suggested_wps.index(self.region_wps[i[1]])
                     ] += i[0]
                 else:
-                    suggested_wps.append(self.region_wps[i[1]])
+                    suggested_regions(i[1])
                     suggested_score.append(i[0])
+                    suggested_wps.append(self.region_wps[i[1]])
             else:
                 rospy.loginfo(
                     "No waypoint covers region %s, removing region..." % i[1]
                 )
         task = GetExplorationTasksResponse(
-            suggested_wps[:5], suggested_score[:5]
+            suggested_wps[:5], suggested_regions[:5], suggested_score[:5]
         )
         rospy.loginfo("Recommended waypoints to visit: %s" % str(task))
         # task = self._check_consent(msg, task)
