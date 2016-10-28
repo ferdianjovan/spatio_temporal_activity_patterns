@@ -116,7 +116,7 @@ class ActivityRecommender(object):
                         suggested_wps.index(self.region_wps[i[1]])
                     ] += i[0]
                 else:
-                    suggested_regions(i[1])
+                    suggested_regions.append(i[1])
                     suggested_score.append(i[0])
                     suggested_wps.append(self.region_wps[i[1]])
             else:

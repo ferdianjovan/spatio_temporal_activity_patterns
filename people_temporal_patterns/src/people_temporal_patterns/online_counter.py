@@ -125,6 +125,7 @@ class PeopleCounter(object):
                     if not _thread.isAlive():
                         _is_updating_region = False
                         _thread = None
+            rospy.sleep(0.1)
         self._is_stopped = True
 
     def update(self):
