@@ -110,6 +110,9 @@ class PeopleCounterService(object):
             rois_people = self.counter.retrieve_from_to(
                 start, start + self.time_window, msg.upper_bound
             )
+            rois_people = {
+                roi: sum(val.values()) for roi, val in rois_people.iteritems() if len(val) > 0
+            }
             for i in range(3):  # for each time point, pick the highest 3 regions
                 estimate = max(rois_people.values())
                 roi = rois_people.keys()[rois_people.values().index(estimate)]

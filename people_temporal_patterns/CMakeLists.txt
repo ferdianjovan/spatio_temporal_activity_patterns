@@ -27,6 +27,7 @@ catkin_python_setup()
 add_service_files(
   FILES
   PeopleEstimateSrv.srv
+  PeopleBestTimeEstimateSrv.srv
 )
 
 generate_messages(
