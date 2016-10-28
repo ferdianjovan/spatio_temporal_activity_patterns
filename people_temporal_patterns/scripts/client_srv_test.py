@@ -2,23 +2,31 @@
 
 import rospy
 import argparse
-from people_temporal_patterns.srv import PeopleEstimateSrv
+from people_temporal_patterns.srv import PeopleEstimateSrv, PeopleBestTimeEstimateSrv
 
 
 class PeopleClientSrv(object):
 
     def __init__(self, start_time, duration):
-        self.service = rospy.ServiceProxy(
+        self.service_estimate = rospy.ServiceProxy(
             "/people_counter/people_estimate",
             PeopleEstimateSrv
         )
-        self.service.wait_for_service()
+        self.service_estimate.wait_for_service()
+        self.service_best_time_estimate = rospy.ServiceProxy(
+            "/people_counter/people_best_time_estimate",
+            PeopleBestTimeEstimateSrv
+        )
         start = rospy.Time.now() - rospy.Duration(start_time)
         end = start + rospy.Duration(duration)
-        result = self.service(start, end, True, False)
-        print "With Upper Bound: ", result
-        result = self.service(start, end, False, False)
-        print "Without Upper Bound: ", result
+        result = self.service_estimate(start, end, True, False)
+        print "People Estimate With Upper Bound: ", result
+        result = self.service_estimate(start, end, False, False)
+        print "People Estimate Without Upper Bound: ", result
+        result = self.service_best_time_estimate(start, end, 20, True)
+        print "People Estimate With Upper Bound: ", result
+        result = self.service_best_time_estimate(start, end, 20, False)
+        print "People Estimate Without Upper Bound: ", result
 
 
 if __name__ == "__main__":

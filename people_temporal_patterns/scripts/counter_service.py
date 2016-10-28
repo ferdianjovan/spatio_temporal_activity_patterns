@@ -4,6 +4,7 @@ import rospy
 from std_srvs.srv import Empty, EmptyResponse
 from people_temporal_patterns.online_counter import PeopleCounter
 from people_temporal_patterns.srv import PeopleEstimateSrv, PeopleEstimateSrvResponse
+from people_temporal_patterns.srv import PeopleBestTimeEstimateSrv, PeopleBestTimeEstimateSrvResponse
 
 
 class PeopleCounterService(object):
@@ -13,6 +14,9 @@ class PeopleCounterService(object):
         self.time_window = rospy.Duration(
             rospy.get_param("~time_window", 10)*60
         )
+        self.time_increment = rospy.Duration(
+            rospy.get_param("~time_increment", 1)*60
+        )
         self.counter = PeopleCounter(
             rospy.get_param("~soma_config", "activity_exploration"),
             rospy.get_param("~time_window", 10),
@@ -21,14 +25,17 @@ class PeopleCounterService(object):
         )
         self.counter.load_from_db()
         rospy.sleep(1)
-        rospy.loginfo("Preparing %s/people_estimate..." % rospy.get_name())
+        rospy.loginfo("Preparing %s/people_estimate service..." % rospy.get_name())
         rospy.Service(
-            '%s/people_estimate' % rospy.get_name(),
-            PeopleEstimateSrv, self._srv_cb
+            '%s/people_estimate' % rospy.get_name(), PeopleEstimateSrv, self._srv_cb
+        )
+        rospy.loginfo("Preparing %s/people_best_time_estimate service..." % rospy.get_name())
+        rospy.Service(
+            '%s/people_best_time_estimate' % rospy.get_name(),
+            PeopleBestTimeEstimateSrv, self._srv_best_cb
         )
         rospy.Service(
-            '%s/restart' % rospy.get_name(),
-            Empty, self._restart_srv_cb
+            '%s/restart' % rospy.get_name(), Empty, self._restart_srv_cb
         )
         rospy.sleep(0.1)
 
@@ -85,6 +92,33 @@ class PeopleCounterService(object):
         estimate = PeopleEstimateSrvResponse(rois, rates)
         rospy.loginfo("People estimate: %s" % str(estimate))
         return estimate
+
+    def _srv_best_cb(self, msg):
+        rospy.loginfo(
+            "Got a request to find %s highest number of people within %d and %d..."
+            % (str(msg.number_of_estimates), msg.start_time.secs, msg.end_time.secs)
+        )
+        times, rois, estimates = self._find_highest_estimates(msg)
+        estimate = PeopleBestTimeEstimateSrvResponse(times, rois, estimates)
+        rospy.loginfo("People estimate: %s" % str(estimate))
+        return estimate
+
+    def _find_highest_estimates(self, msg):
+        estimates = list()  # each point is a tuple of (time, region, estimate)
+        start = msg.start_time
+        while start + self.time_window <= msg.end_time:
+            rois_people = self.counter.retrieve_from_to(
+                start, start + self.time_window, msg.upper_bound
+            )
+            for i in range(3):  # for each time point, pick the highest 3 regions
+                estimate = max(rois_people.values())
+                roi = rois_people.keys()[rois_people.values().index(estimate)]
+                estimates.append((start, roi, estimate))
+                del rois_people[roi]
+            start = start + self.time_increment
+        estimates = sorted(estimates, key=lambda i: i[2], reverse=True)
+        estimates = estimates[:msg.number_of_estimates]
+        return zip(*estimates)[0], zip(*estimates)[1], zip(*estimates)[2]
 
     def continuous_update(self):
         rospy.loginfo("Continuously counting people...")
