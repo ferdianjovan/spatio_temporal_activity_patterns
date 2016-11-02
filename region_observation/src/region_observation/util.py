@@ -5,11 +5,11 @@ import rospy
 import datetime
 import itertools
 import numpy as np
-from shapely.geometry import Polygon, LineString
 from tf.transformations import euler_from_quaternion
+from shapely.geometry import Polygon, LineString, Point
 
 from soma_map_manager.srv import MapInfo
-from soma_manager.srv import SOMA2QueryObjs
+from soma_manager.srv import SOMAQueryROIs
 
 
 # calculate polygon area using Shoelace Formula
@@ -43,7 +43,14 @@ def create_polygon(xs, ys):
 
 
 def create_line_string(points):
-    return LineString(points)
+    if len(points) < 1:
+        return None
+    elif len(points) == 1:
+        return Point(points[0])
+    elif isinstance(points[0], list):
+        return LineString(points)
+    else:
+        return Point(points)
 
 
 def robot_view_cone(pose, pan_orientation=0.0):
@@ -99,26 +106,24 @@ def get_dict_observation(msg):
 
 
 def get_soma_info(soma_config):
-    soma_service = rospy.ServiceProxy("/soma2/map_info", MapInfo)
+    soma_service = rospy.ServiceProxy("/soma/map_info", MapInfo)
     soma_service.wait_for_service()
     soma_map = soma_service(1).map_name
     rospy.loginfo("Got soma map name %s..." % soma_map)
     # get region information from soma2
-    soma_service = rospy.ServiceProxy("/soma2/query_db", SOMA2QueryObjs)
+    soma_service = rospy.ServiceProxy("/soma/query_rois", SOMAQueryROIs)
     soma_service.wait_for_service()
     result = soma_service(
-        2, False, False, False, False, False, False,
-        0, 0, 0, 0, 0, 0, 0, 0, [], [], ""
+        query_type=0, roiconfigs=[soma_config], returnmostrecent=True
     )
     # create polygon for each regions
     regions = dict()
-    rospy.loginfo("Total regions for this soma map are %d" % len(result.rois))
     for region in result.rois:
         if region.config == soma_config and region.map_name == soma_map:
             xs = [pose.position.x for pose in region.posearray.poses]
             ys = [pose.position.y for pose in region.posearray.poses]
-            regions[region.roi_id] = create_polygon(xs, ys)
-    rospy.loginfo("Total regions for this configuration are %d" % len(regions.values()))
+            regions[region.id] = create_polygon(xs, ys)
+    rospy.loginfo("Total regions for configuration %s are %d" % (soma_config, len(regions.values())))
     return regions, soma_map
 
 

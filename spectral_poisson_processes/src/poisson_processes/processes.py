@@ -157,7 +157,8 @@ class PoissonProcesses(object):
                 self.poisson[key].shape = log[0].shape
                 self.poisson[key].set_rate(log[0].rate)
             retrieved = True
-        rospy.loginfo("%d new poisson distributions are obtained from db..." % len(logs))
+        if len(logs) > 0:
+            rospy.loginfo("%d new poisson distributions are obtained from db..." % len(logs))
         return retrieved
 
 

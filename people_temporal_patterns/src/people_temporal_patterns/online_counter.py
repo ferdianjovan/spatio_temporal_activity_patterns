@@ -26,7 +26,7 @@ class PeopleCounter(object):
         self._start_time = rospy.Time(time.mktime(temp.timetuple()))
         self._is_stop_requested = False
         self._is_stopped = False
-        self._acquired = False
+        self._lock = threading.Lock()
         # trajectories subscriber
         self.trajectories = list()
         self._traj_subs = rospy.Subscriber(
@@ -77,6 +77,7 @@ class PeopleCounter(object):
         return result
 
     def load_from_db(self):
+        rospy.loginfo("Retrieving people processes from database. It may take a while...")
         for roi in self.process.keys():
             meta = {
                 "soma_map": self.map, "soma_config": self.config,
@@ -95,11 +96,9 @@ class PeopleCounter(object):
     def _pt_cb(self, msg):
         if len(msg.trajectories) == 0:
             return
-        while self._acquired:
-            rospy.sleep(0.01)
-        self._acquired = True
+        self._lock.acquire_lock()
         self.trajectories.extend(msg.trajectories)
-        self._acquired = False
+        self._lock.release_lock()
 
     def continuous_update(self):
         self._is_stopped = False
@@ -175,11 +174,9 @@ class PeopleCounter(object):
         # and update the current stored trajectories
         n = len(temp)
         temp = [i for i in temp if i not in used_trajectories]
-        while self._acquired:
-            rospy.sleep(0.01)
-        self._acquired = True
+        self._lock.acquire_lock()
         self.trajectories = temp + self.trajectories[n:]
-        self._acquired = False
+        self._lock.release_lock()
 
     def _store(self, roi, start_time):
         self.process[roi]._store(
