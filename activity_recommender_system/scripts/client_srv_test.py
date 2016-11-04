@@ -2,7 +2,7 @@
 
 import rospy
 import argparse
-from strands_exploration_msgs.srv import GetExplorationTasks
+from activity_recommender_system.srv import GetExplorationTasks
 
 
 class ActivityClientSrv(object):
