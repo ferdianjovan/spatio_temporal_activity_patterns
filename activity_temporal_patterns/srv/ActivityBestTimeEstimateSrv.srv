@@ -1,9 +1,9 @@
 time start_time
 time end_time
+int32 number_of_estimates
 bool upper_bound  # upper bound confidence of people rate 
-bool scale        # number of observations has been done
-# (can not both upper_bound and scale be true)
 ---
+time[] times
 string[] region_ids
-string[] activities
+# string[] activities
 float64[] estimates

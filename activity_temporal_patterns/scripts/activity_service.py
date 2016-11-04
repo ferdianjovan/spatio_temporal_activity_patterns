@@ -3,6 +3,7 @@
 import rospy
 from activity_temporal_patterns.online_counter import ActivityCounter
 from activity_temporal_patterns.srv import ActivityEstimateSrv, ActivityEstimateSrvResponse
+from activity_temporal_patterns.srv import ActivityBestTimeEstimateSrv, ActivityBestTimeEstimateSrvResponse
 
 
 class ActivityCounterService(object):
@@ -12,20 +13,26 @@ class ActivityCounterService(object):
         self.time_window = rospy.Duration(
             rospy.get_param("~time_window", 10)*60
         )
+        self.time_increment = rospy.Duration(
+            rospy.get_param("~time_increment", 1)*60
+        )
         self.counter = ActivityCounter(
             rospy.get_param("~soma_config", "activity_exploration"),
-            rospy.get_param("~activity_srv", "/activity_simulation/available_activities"),
-            rospy.get_param("~activity_topic", "/activity_simulation/activities"),
             rospy.get_param("~time_window", 10),
             rospy.get_param("~time_increment", 1),
             rospy.get_param("~periodic_cycle", 10080),
         )
         self.counter.load_from_db()
         rospy.sleep(1)
-        rospy.loginfo("Preparing %s/activity_estimate..." % rospy.get_name())
+        rospy.loginfo("Preparing %s/activity_estimate service..." % rospy.get_name())
         self.service = rospy.Service(
             '%s/activity_estimate' % rospy.get_name(),
             ActivityEstimateSrv, self._srv_cb
+        )
+        rospy.loginfo("Preparing %s/activity_best_time_estimate service..." % rospy.get_name())
+        rospy.Service(
+            '%s/activity_best_time_estimate' % rospy.get_name(),
+            ActivityBestTimeEstimateSrv, self._srv_best_cb
         )
         rospy.sleep(0.1)
 
@@ -48,7 +55,7 @@ class ActivityCounterService(object):
         while start < msg.end_time:
             rois_acts = self.counter.retrieve_from_to(
                 # scale might not be needed
-                start, start + self.time_window, msg.scale
+                start, start + self.time_window, msg.upper_bound, msg.scale
             )
             for roi, acts in rois_acts.iteritems():
                 for act, numbers in acts.iteritems():
@@ -71,13 +78,45 @@ class ActivityCounterService(object):
         rospy.loginfo("Activity estimate: %s" % estimate)
         return estimate
 
-    def spin(self):
+    def _srv_best_cb(self, msg):
+        rospy.loginfo(
+            "Got a request to find %s highest intensity of activities within %d and %d..."
+            % (str(msg.number_of_estimates), msg.start_time.secs, msg.end_time.secs)
+        )
+        times, rois, estimates = self._find_highest_estimates(msg)
+        estimate = ActivityBestTimeEstimateSrvResponse(times, rois, estimates)
+        rospy.loginfo("Activity estimate: %s" % str(estimate))
+        return estimate
+
+    def _find_highest_estimates(self, msg):
+        estimates = list()  # each point is a tuple of (time, region, estimate)
+        start = msg.start_time
+        while start + self.time_window <= msg.end_time:
+            rois_activity = self.counter.retrieve_from_to(
+                start, start + self.time_window, msg.upper_bound
+            )
+            rois_activity = {
+                roi: sum(
+                    [sum(val.values()) for val in acts.itervalues()]
+                ) for roi, acts in rois_activity.iteritems()
+            }
+            for i in range(3):  # for each time point, pick the highest 3 regions
+                estimate = max(rois_activity.values())
+                roi = rois_activity.keys()[rois_activity.values().index(estimate)]
+                estimates.append((start, roi, estimate))
+                del rois_activity[roi]
+            start = start + self.time_increment
+        estimates = sorted(estimates, key=lambda i: i[2], reverse=True)
+        estimates = estimates[:msg.number_of_estimates]
+        return zip(*estimates)[0], zip(*estimates)[1], zip(*estimates)[2]
+
+    def continuous_update(self):
         rospy.loginfo("Continuously observing activities...")
         self.counter.continuous_update()
-        rospy.spin()
 
 
 if __name__ == '__main__':
     rospy.init_node("activity_counter")
     acs = ActivityCounterService()
-    acs.spin()
+    acs.continuous_update()
+    rospy.spin()

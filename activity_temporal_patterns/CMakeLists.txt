@@ -25,6 +25,7 @@ catkin_python_setup()
 add_service_files(
   FILES
   ActivityEstimateSrv.srv
+  ActivityBestTimeEstimateSrv.srv
 )
 
 generate_messages(
