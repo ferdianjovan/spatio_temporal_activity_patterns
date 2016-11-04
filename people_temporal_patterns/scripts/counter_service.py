@@ -113,15 +113,19 @@ class PeopleCounterService(object):
             rois_people = {
                 roi: sum(val.values()) for roi, val in rois_people.iteritems() if len(val) > 0
             }
-            for i in range(3):  # for each time point, pick the highest 3 regions
-                estimate = max(rois_people.values())
-                roi = rois_people.keys()[rois_people.values().index(estimate)]
-                estimates.append((start, roi, estimate))
-                del rois_people[roi]
+            if len(rois_people.values()) > 0:
+                for i in range(3):  # for each time point, pick the highest 3 regions
+                    estimate = max(rois_people.values())
+                    roi = rois_people.keys()[rois_people.values().index(estimate)]
+                    estimates.append((start, roi, estimate))
+                    del rois_people[roi]
             start = start + self.time_increment
         estimates = sorted(estimates, key=lambda i: i[2], reverse=True)
         estimates = estimates[:msg.number_of_estimates]
-        return zip(*estimates)[0], zip(*estimates)[1], zip(*estimates)[2]
+        if len(estimates) > 0:
+            return zip(*estimates)[0], zip(*estimates)[1], zip(*estimates)[2]
+        else:
+            return list(), list(), list()
 
     def continuous_update(self):
         rospy.loginfo("Continuously counting people...")
