@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package>
+  <name>scene_temporal_patterns</name>
+  <version>1.0.0</version>
+  <description>The scene_temporal_patterns package</description>
+
+  <maintainer email="fxj345@cs.bham.ac.uk">Ferdian Jovan</maintainer>
+
+  <license>MIT</license>
+
+  <author email="fxj345@cs.bham.ac.uk">Ferdian Jovan</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>region_observation</build_depend>
+  <build_depend>rospy</build_depend>
+  <build_depend>simple_change_detector</build_depend>
+  <build_depend>spectral_poisson_processes</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <run_depend>region_observation</run_depend>
+  <run_depend>rospy</run_depend>
+  <run_depend>simple_change_detector</run_depend>
+  <run_depend>spectral_poisson_processes</run_depend>
+  <run_depend>std_msgs</run_depend>
+
+  <export>
+  </export>
+</package>

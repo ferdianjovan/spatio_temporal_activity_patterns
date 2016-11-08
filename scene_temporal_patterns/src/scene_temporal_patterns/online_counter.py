@@ -7,14 +7,13 @@ import rospy
 import argparse
 import datetime
 import threading
-from human_trajectory.msg import Trajectories
+from simple_change_detector.msg import ChangeDetectionMsg
 from spectral_processes.processes import SpectralPoissonProcesses
 from region_observation.observation_proxy import RegionObservationProxy
 from region_observation.util import create_line_string, is_intersected, get_soma_info
-from people_temporal_patterns.offline_counter import PeopleCounter as OffPeopleCounter
 
 
-class PeopleCounter(object):
+class SceneCounter(object):
 
     def __init__(
         self, config, window=10, increment=1, periodic_cycle=10080
@@ -28,10 +27,10 @@ class PeopleCounter(object):
         self._is_stopped = False
         self._lock = threading.Lock()
         # trajectories subscriber
-        self.trajectories = list()
-        self._traj_subs = rospy.Subscriber(
-            rospy.get_param("~trajectory_topic", "/people_trajectory/trajectories/complete"),
-            Trajectories, self._pt_cb, None, 10
+        self.change_detections = list()
+        self._scene_subs = rospy.Subscriber(
+            rospy.get_param("~scene_topic", "/change_detection/detections"),
+            ChangeDetectionMsg, self._pt_cb, None, 10
         )
         # get soma-related info
         self.config = config
@@ -39,8 +38,8 @@ class PeopleCounter(object):
         self.obs_proxy = RegionObservationProxy(self.map, self.config)
         # for each roi create PoissonProcesses
         rospy.loginfo("Time window is %d minute with increment %d minute" % (window, increment))
-        self.time_window = window
-        self.time_increment = increment
+        self.time_window = rospy.Duration(window*60)
+        self.time_increment = rospy.Duration(increment*60)
         self.periodic_cycle = periodic_cycle
         rospy.loginfo("Creating a periodic cycle every %d minutes" % periodic_cycle)
         self.process = {
@@ -49,7 +48,7 @@ class PeopleCounter(object):
 
     def request_stop_update(self):
         self._is_stop_requested = True
-        self._traj_subs.unregister()
+        self._scene_subs.unregister()
         self._wait_to_stop()
 
     def _wait_to_stop(self):
@@ -58,9 +57,9 @@ class PeopleCounter(object):
 
     def request_continue_update(self):
         self._is_stop_requested = False
-        self._traj_subs = rospy.Subscriber(
-            rospy.get_param("~trajectory_topic", "/people_trajectory/trajectories/complete"),
-            Trajectories, self._pt_cb, None, 10
+        self._scene_subs = rospy.Subscriber(
+            rospy.get_param("~scene_topic", "/change_detection/detections"),
+            ChangeDetectionMsg, self._pt_cb, None, 10
         )
 
     def retrieve_from_to(
@@ -82,7 +81,7 @@ class PeopleCounter(object):
         for roi in self.process.keys():
             meta = {
                 "soma_map": self.map, "soma_config": self.config,
-                "region_id": roi, "type": "people"
+                "region_id": roi, "type": "scene"
             }
             self.process[roi].retrieve_from_mongo(meta)
 
@@ -90,41 +89,24 @@ class PeopleCounter(object):
         for roi in self.process.keys():
             meta = {
                 "soma_map": self.map, "soma_config": self.config,
-                "region_id": roi, "type": "people"
+                "region_id": roi, "type": "scene"
             }
             self.process[roi].store_to_mongo(meta)
 
     def _pt_cb(self, msg):
-        if len(msg.trajectories) == 0:
+        if len(msg.change_detections) == 0:
             return
         self._lock.acquire_lock()
-        self.trajectories.extend(msg.trajectories)
+        self.change_detections.extend(msg.object_centroids)
         self._lock.release_lock()
 
     def continuous_update(self):
         self._is_stopped = False
-        updating_region_time = rospy.Time.now()
-        _is_updating_region = False
-        _thread = None
         while not rospy.is_shutdown() and not self._is_stop_requested:
             now = rospy.Time.now()
             delta = (now - self._start_time)
-            if delta > rospy.Duration(self.time_window*60):
+            if delta > self.time_window:
                 self.update()
-            if datetime.datetime.fromtimestamp(now.secs).hour == 0:
-                if not _is_updating_region:
-                    updating_region_time = now
-                    _thread = threading.Thread(target=self.update_regions)
-                    _thread.start()
-                    _is_updating_region = True
-                    rospy.sleep(1)
-            if _thread is not None and _thread.isAlive():
-                if (now - updating_region_time).secs >= 3600:
-                    updating_region_time = now
-                    _thread.join(1)
-                    if not _thread.isAlive():
-                        _is_updating_region = False
-                        _thread = None
             rospy.sleep(0.1)
         self._is_stopped = True
 
@@ -136,35 +118,35 @@ class PeopleCounter(object):
         )
         end_time = rospy.Time(time.mktime(new_end.timetuple()))
         region_observations = self.obs_proxy.load_msg(
-            self._start_time, end_time, minute_increment=self.time_increment
+            self._start_time, end_time, minute_increment=self.time_increment.secs/60
         )
-        temp = copy.deepcopy(self.trajectories)
-        rospy.loginfo("Total trajectories counted so far is %d." % len(temp))
+        temp = copy.deepcopy(self.change_detections)
+        # rospy.loginfo("Total scene changing counted so far is %d." % len(temp))
 
-        used_trajectories = list()
+        not_in_any_region = True
+        used_detections = list()
         count_per_region = dict()
         for observation in region_observations:
             count = 0
-            for trajectory in temp:
+            for detection in temp:
                 points = [
-                    [
-                        pose.pose.position.x, pose.pose.position.y
-                    ] for pose in trajectory.trajectory
+                    [point.x, point.y] for point in detection.object_centroids
                 ]
                 points = create_line_string(points)
                 if is_intersected(self.regions[observation.region_id], points):
+                    not_in_any_region = False
                     # it also must be within time boundaries
-                    conditions = trajectory.end_time >= observation.start_from
+                    conditions = detection.header.stamp >= observation.start_from
                     # observation.until is secs.999999999999
-                    conditions = conditions and trajectory.end_time <= observation.until
+                    conditions = conditions and detection.header.stamp <= observation.until
                     if conditions:
                         count += 1
-                if trajectory.end_time < self._start_time + rospy.Duration(
-                    self.time_increment*60
-                ) and (trajectory not in used_trajectories):
-                    used_trajectories.append(trajectory)
+                if (
+                    detection.header.stamp < (self._start_time+self.time_increment)
+                ) and (detection not in used_detections):
+                    used_detections.append(detection)
             if count > 0 or observation.duration.secs >= 59:
-                count = self._extrapolate_count(observation.duration, count)
+                count = max(1, count)
                 if observation.region_id not in count_per_region.keys():
                     count_per_region[observation.region_id] = 0
                 count_per_region[observation.region_id] += count
@@ -172,13 +154,13 @@ class PeopleCounter(object):
         for roi, count in count_per_region.iteritems():
             self.process[roi].update(self._start_time, count)
             self._store(roi, self._start_time)
-        self._start_time = self._start_time + rospy.Duration(self.time_increment*60)
-        # remove trajectories that have been updated,
+        self._start_time = self._start_time + self.time_increment
+        # remove detections that have been updated,
         # and update the current stored trajectories
         n = len(temp)
-        temp = [i for i in temp if i not in used_trajectories]
+        temp = [i for i in temp if i not in used_detections]
         self._lock.acquire_lock()
-        self.trajectories = temp + self.trajectories[n:]
+        self.change_detections = temp + self.change_detections[n:]
         self._lock.release_lock()
 
     def _store(self, roi, start_time):
@@ -186,54 +168,13 @@ class PeopleCounter(object):
             start_time,
             {
                 "soma_map": self.map, "soma_config": self.config,
-                "region_id": roi, "type": "people"
+                "region_id": roi, "type": "scene"
             }
         )
 
-    def _extrapolate_count(self, duration, count):
-        """ extrapolate the number of trajectories with specific upper_threshold.
-            upper_threshold is to ceil how long the robot was in an area
-            for one minute interval, if the robot was there for less than 20
-            seconds, then it will be boosted to 20 seconds.
-        """
-        upper_threshold_duration = rospy.Duration(0, 0)
-        while duration > upper_threshold_duration:
-            upper_threshold_duration += rospy.Duration(
-                self.time_increment * 20, 0
-            )
-
-        multiplier_estimator = 3600 / float(
-            (60 / self.time_increment) * upper_threshold_duration.secs
-        )
-        # rospy.loginfo("Extrapolate count %d by %.2f" % (count, multiplier_estimator))
-        return math.ceil(multiplier_estimator * count)
-
-    def update_regions(self):
-        regions, _ = get_soma_info(self.config)
-        new_regions = {
-            roi: region for roi, region in regions.iteritems() if roi not in self.regions
-        }
-        if new_regions == dict():
-            rospy.loginfo("No new region is found, skipping next procedures...")
-        else:
-            rospy.loginfo(
-                "New regions %s are found, proceeding to next procedures..." % str(
-                    new_regions.keys()
-                )
-            )
-            self.regions.update(new_regions)
-            opc = OffPeopleCounter(
-                self.config, self.time_window, self.time_increment, self.periodic_cycle, True
-            )
-            opc.construct_process_from_trajectory(
-                self._start_time, rospy.Time.now(), new_regions.keys()
-            )
-            for roi in new_regions:
-                self.process.update({roi: opc.process[roi]})
-
 
 if __name__ == '__main__':
-    rospy.init_node("online_people_counter")
+    rospy.init_node("online_scene_counter")
     parser = argparse.ArgumentParser(prog=rospy.get_name())
     parser.add_argument('soma_config', help="Soma configuration")
     parser.add_argument(
@@ -250,7 +191,7 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-    ppp = PeopleCounter(
+    ppp = SceneCounter(
         args.soma_config, int(args.time_window), int(args.time_increment),
         int(args.periodic_cycle)
     )

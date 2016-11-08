@@ -11,11 +11,12 @@ from poisson_processes.processes import PeriodicPoissonProcesses
 class PoissonWrapper(object):
 
     def __init__(
-        self, topic, topic_msg, topic_attribute, value, meta_info=dict(),
-        window=10, increment=1, periodic_cycle=10080
+        self, topic, topic_msg, topic_attribute, value, not_value=False,
+        meta_info=dict(), max_count=None, window=10, increment=1,
+        periodic_cycle=10080
     ):
         rospy.loginfo("Initializing poisson wrapper...")
-        self._acquired = False
+        self._lock = threading.Lock()
         # for each roi create PoissonProcesses
         rospy.loginfo("Time window is %d minute with increment %d minute" % (window, increment))
         temp = datetime.datetime.fromtimestamp(rospy.Time.now().secs)
@@ -24,6 +25,8 @@ class PoissonWrapper(object):
         )
         self._start_time = rospy.Time(time.mktime(temp.timetuple()))
         self._stored_value = list()
+        self.max_count = max_count
+        self.not_value = not_value
         self.time_window = rospy.Duration(window*60)
         self.time_increment = rospy.Duration(increment*60)
         rospy.loginfo("Creating a periodic cycle every %d minutes" % periodic_cycle)
@@ -58,39 +61,62 @@ class PoissonWrapper(object):
                         count += j[1]
                     if j[0] >= self._start_time + self.time_increment and i not in stored_inds:
                         stored_inds.append(i)
-                self.process.update(self._start_time, count)
+                self.process.update(self._start_time, max(count, self.max_count))
                 self._store(self._start_time)
                 self._start_time = self._start_time + self.time_increment
                 # updating stored_value
                 n = len(temp)
                 temp = [temp[i] for i in stored_inds]
                 # mutex lock
-                while self._acquired:
-                    rospy.sleep(0.01)
-                self._acquired = True
+                self._lock.acquire_lock()
                 self._stored_value = temp + self._stored_value[n:]
-                self._acquired = False
-            rospy.sleep(0.1)
+                self._lock.release_lock()
+            rospy.sleep(1)
 
     def _cb(self, msg):
         current_time = rospy.Time.now()
         value = getattr(msg, self.attribute)
         count = 0
         if isinstance(value, (list, tuple)):
-            count = sum([1 for i in value if value == self.value])
+            if self.not_value:
+                if self.value == list():
+                    count = int(len(value) > 0)
+                elif isinstance(self.value, (list, tuple)):
+                    count = sum([1 for i in value if value not in self.value])
+                else:
+                    count = sum([1 for i in value if value != self.value])
+            else:
+                if self.value == list():
+                    count = int(len(value) == 0)
+                elif isinstance(self.value, (list, tuple)):
+                    count = sum([1 for i in value if value in self.value])
+                else:
+                    count = sum([1 for i in value if value == self.value])
         elif self.value == value:
-            count = 1
+            if self.not_value:
+                if self.value is None:
+                    count = int(value is not self.value)
+                elif isinstance(self.value, (list, tuple)):
+                    count = int(value not in self.value)
+                else:
+                    count = int(value != self.value)
+            else:
+                if self.value is None:
+                    count = int(value is self.value)
+                elif isinstance(self.value, (list, tuple)):
+                    count = int(value in self.value)
+                else:
+                    count = int(value == self.value)
         # mutex lock
-        while self._acquired:
-            rospy.sleep(0.01)
-        self._acquired = True
+        self._lock.acquire_lock()
         self._stored_value.append((current_time, count))
-        self._acquired = False
+        self._lock.release_lock()
 
     def _store(self, start_time):
         meta = {
             "type": self.topic_msg._type, "topic": self.topic,
-            "recorded_value": self.value, "recorded_attribute": self.attribute
+            "recorded_value": self.value, "recorded_attribute": self.attribute,
+            "is_not_value": self.not_value, "max_count": self.max_count
         }
         meta.update(self.meta_info)
         self.process._store(start_time, meta)
@@ -101,7 +127,8 @@ class PoissonWrapper(object):
     def load_from_db(self):
         meta = {
             "type": self.topic_msg._type, "topic": self.topic,
-            "recorded_value": self.value, "recorded_attribute": self.attribute
+            "recorded_value": self.value, "recorded_attribute": self.attribute,
+            "is_not_value": self.not_value, "max_count": self.max_count
         }
         meta.update(self.meta_info)
         self.process.retrieve_from_mongo(meta)
@@ -110,6 +137,7 @@ class PoissonWrapper(object):
         meta = {
             "type": self.topic_msg._type, "topic": self.topic,
             "recorded_value": self.value, "recorded_attribute": self.attribute
+            "is_not_value": self.not_value, "max_count": self.max_count
         }
         meta.update(self.meta_info)
         self.process.store_to_mongo(meta)

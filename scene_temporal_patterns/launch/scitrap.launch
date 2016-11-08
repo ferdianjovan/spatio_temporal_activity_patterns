@@ -3,18 +3,18 @@
     <arg name="time_increment" default="1"/>
     <arg name="time_window" default="10"/>
     <arg name="periodic_cycle" default="10080"/>
-    <arg name="trajectory_topic" default="/people_trajectory/trajectories/complete"/>
+    <arg name="scene_topic" default="/change_detection/detections"/>
     
     <arg name="machine" default="localhost" />
     <arg name="user" default="" />
 
     <machine name="$(arg machine)" address="$(arg machine)" env-loader="$(optenv ROS_ENV_LOADER )" user="$(arg user)" default="true"/>
 
-    <node pkg="people_temporal_patterns" type="people_service.py" name="people_counter" respawn="false" output="screen">
+    <node pkg="scene_temporal_patterns" type="scene_service.py" name="scene_counter" respawn="false" output="screen">
         <param name="soma_config" value="$(arg soma_config)" type="string"/>
         <param name="time_increment" value="$(arg time_increment)" type="int"/>
         <param name="time_window" value="$(arg time_window)" type="int"/>
         <param name="periodic_cycle" value="$(arg periodic_cycle)" type="int"/>
-        <param name="trajectory_topic" value="$(arg trajectory_topic)" type="string"/>
+        <param name="scene_topic" value="$(arg scene_topic)" type="string"/>
     </node>
 </launch>

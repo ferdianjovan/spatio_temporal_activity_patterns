@@ -2,37 +2,37 @@
 
 import rospy
 from std_srvs.srv import Empty, EmptyResponse
-from people_temporal_patterns.online_counter import PeopleCounter
-from people_temporal_patterns.srv import PeopleEstimateSrv, PeopleEstimateSrvResponse
-from people_temporal_patterns.srv import PeopleBestTimeEstimateSrv, PeopleBestTimeEstimateSrvResponse
+from scene_temporal_patterns.online_counter import SceneCounter
+from scene_temporal_patterns.srv import SceneEstimateSrv, SceneEstimateSrvResponse
+from scene_temporal_patterns.srv import SceneBestTimeEstimateSrv, SceneBestTimeEstimateSrvResponse
 
 
-class PeopleCounterService(object):
+class SceneCounterService(object):
 
     def __init__(self):
-        rospy.loginfo("Initiating people counter...")
+        rospy.loginfo("Initiating scene counter...")
         self.time_window = rospy.Duration(
             rospy.get_param("~time_window", 10)*60
         )
         self.time_increment = rospy.Duration(
             rospy.get_param("~time_increment", 1)*60
         )
-        self.counter = PeopleCounter(
+        self.counter = SceneCounter(
             rospy.get_param("~soma_config", "activity_exploration"),
             rospy.get_param("~time_window", 10),
             rospy.get_param("~time_increment", 1),
-            rospy.get_param("~periodic_cycle", 10080),
+            rospy.get_param("~periodic_cycle", 10080)
         )
         self.counter.load_from_db()
         rospy.sleep(1)
-        rospy.loginfo("Preparing %s/people_estimate service..." % rospy.get_name())
+        rospy.loginfo("Preparing %s/scene_estimate service..." % rospy.get_name())
         rospy.Service(
-            '%s/people_estimate' % rospy.get_name(), PeopleEstimateSrv, self._srv_cb
+            '%s/scene_estimate' % rospy.get_name(), SceneEstimateSrv, self._srv_cb
         )
-        rospy.loginfo("Preparing %s/people_best_time_estimate service..." % rospy.get_name())
+        rospy.loginfo("Preparing %s/scene_best_time_estimate service..." % rospy.get_name())
         rospy.Service(
-            '%s/people_best_time_estimate' % rospy.get_name(),
-            PeopleBestTimeEstimateSrv, self._srv_best_cb
+            '%s/scene_best_time_estimate' % rospy.get_name(),
+            SceneBestTimeEstimateSrv, self._srv_best_cb
         )
         rospy.Service(
             '%s/restart' % rospy.get_name(), Empty, self._restart_srv_cb
@@ -41,9 +41,7 @@ class PeopleCounterService(object):
 
     def _restart_srv_cb(self, msg):
         self.counter.request_stop_update()
-        self.counter.wait_to_stop()
-        rospy.sleep(1)
-        self.counter = PeopleCounter(
+        self.counter = SceneCounter(
             rospy.get_param("~soma_config", "activity_exploration"),
             rospy.get_param("~time_window", 10),
             rospy.get_param("~time_increment", 1),
@@ -58,7 +56,7 @@ class PeopleCounterService(object):
         result = dict()
 
         rospy.loginfo(
-            "Got a request to estimate the number of people within %d and %d..."
+            "Got a request to estimate the number of scene change within %d and %d..."
             % (msg.start_time.secs, msg.end_time.secs)
         )
         if (msg.end_time - msg.start_time).secs % self.time_window.secs != 0:
@@ -68,12 +66,11 @@ class PeopleCounterService(object):
 
         start = msg.start_time
         while start < msg.end_time:
-            # rois_rates = self.counter.retrieve_from_to(msg.start_time, msg.end_time, msg.scale)
-            rois_people = self.counter.retrieve_from_to(
+            rois_scene = self.counter.retrieve_from_to(
                 # scale might not be needed
                 start, start + self.time_window, msg.upper_bound, msg.scale
             )
-            for roi, estimates in rois_people.iteritems():
+            for roi, estimates in rois_scene.iteritems():
                 if len(estimates) == 0:
                     continue
                 assert len(estimates) == 1, "len:%d (len should be 1), start:%d, end:%d" % (
@@ -89,36 +86,36 @@ class PeopleCounterService(object):
         for roi, estimate in result.iteritems():
             rois.append(roi)
             rates.append(estimate)
-        estimate = PeopleEstimateSrvResponse(rois, rates)
-        rospy.loginfo("People estimate: %s" % str(estimate))
+        estimate = SceneEstimateSrvResponse(rois, rates)
+        rospy.loginfo("Scene estimate: %s" % str(estimate))
         return estimate
 
     def _srv_best_cb(self, msg):
         rospy.loginfo(
-            "Got a request to find %s highest number of people within %d and %d..."
+            "Got a request to find %s highest number of scene changing within %d and %d..."
             % (str(msg.number_of_estimates), msg.start_time.secs, msg.end_time.secs)
         )
         times, rois, estimates = self._find_highest_estimates(msg)
-        estimate = PeopleBestTimeEstimateSrvResponse(times, rois, estimates)
-        rospy.loginfo("People estimate: %s" % str(estimate))
+        estimate = SceneBestTimeEstimateSrvResponse(times, rois, estimates)
+        rospy.loginfo("Scene estimate: %s" % str(estimate))
         return estimate
 
     def _find_highest_estimates(self, msg):
         estimates = list()  # each point is a tuple of (time, region, estimate)
         start = msg.start_time
         while start + self.time_window <= msg.end_time:
-            rois_people = self.counter.retrieve_from_to(
+            rois_scene = self.counter.retrieve_from_to(
                 start, start + self.time_window, msg.upper_bound
             )
-            rois_people = {
-                roi: sum(val.values()) for roi, val in rois_people.iteritems() if len(val) > 0
+            rois_scene = {
+                roi: sum(val.values()) for roi, val in rois_scene.iteritems() if len(val) > 0
             }
-            if len(rois_people.values()) > 0:
+            if len(rois_scene.values()) > 0:
                 for i in range(3):  # for each time point, pick the highest 3 regions
-                    estimate = max(rois_people.values())
-                    roi = rois_people.keys()[rois_people.values().index(estimate)]
+                    estimate = max(rois_scene.values())
+                    roi = rois_scene.keys()[rois_scene.values().index(estimate)]
                     estimates.append((start, roi, estimate))
-                    del rois_people[roi]
+                    del rois_scene[roi]
             start = start + self.time_increment
         estimates = sorted(estimates, key=lambda i: i[2], reverse=True)
         estimates = estimates[:msg.number_of_estimates]
@@ -128,12 +125,12 @@ class PeopleCounterService(object):
             return list(), list(), list()
 
     def continuous_update(self):
-        rospy.loginfo("Continuously counting people...")
+        rospy.loginfo("Continuously observing scene changing...")
         self.counter.continuous_update()
 
 
 if __name__ == '__main__':
-    rospy.init_node("people_counter")
-    pcs = PeopleCounterService()
-    pcs.continuous_update()
+    rospy.init_node("scene_counter")
+    scs = SceneCounterService()
+    scs.continuous_update()
     rospy.spin()
