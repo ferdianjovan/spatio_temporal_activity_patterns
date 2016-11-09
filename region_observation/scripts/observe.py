@@ -47,4 +47,4 @@ class Observation(object):
 
 if __name__ == '__main__':
     rospy.init_node("region_observation")
-    obs = Observation(rospy.get_param("~online", True))
+    obs = Observation(rospy.get_param("~region_observation_online", True))

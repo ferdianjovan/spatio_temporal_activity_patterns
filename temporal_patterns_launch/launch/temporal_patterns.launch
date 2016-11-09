@@ -1,0 +1,73 @@
+<launch>
+    <!-- Global paramters -->
+    <arg name="soma_config"/>
+    <arg name="time_increment" default="1"/>
+    <arg name="time_window" default="10"/>
+    <arg name="periodic_cycle" default="10080"/>
+    <arg name="region_observation_online" default="true"/>
+
+    <arg name="with_scene" default="true"/>
+    <arg name="scene_topic" default="/change_detection/detections"/>
+
+    <arg name="with_people" default="true"/>
+    <arg name="trajectory_topic" default="/people_trajectory/trajectories/complete"/>
+
+    <arg name="with_activity" default="true"/>
+    <arg name="update_every" default="60"/>
+    <arg name="activity_collection" default="activity_learning"/>
+
+    <arg name="machine" default="localhost" />
+    <arg name="user" default="" />
+
+    <machine name="$(arg machine)" address="$(arg machine)" env-loader="$(optenv ROS_ENV_LOADER )" user="$(arg user)" default="true"/>
+    
+    <!-- Region Observation - fixed -->
+    <include file="$(find region_observation)/launch/observation.launch">
+        <arg name="machine" value="$(arg machine)"/>
+        <arg name="user" value="$(arg user)"/>
+        <arg name="soma_config" value="$(arg soma_config)"/>
+        <arg name="time_increment" value="$(arg time_increment)"/>
+        <arg name="region_observation_online" value="$(arg region_observation_online)"/>
+    </include>
+
+    <!-- People Temporal Patterns -->
+    <group if="$(arg with_people)">
+        <include file="$(find people_temporal_patterns)/launch/peetrap.launch">
+            <arg name="machine" value="$(arg machine)"/>
+            <arg name="user" value="$(arg user)"/>
+            <arg name="soma_config" value="$(arg soma_config)"/>
+            <arg name="time_window" value="$(arg time_window)"/>
+            <arg name="time_increment" value="$(arg time_increment)"/>
+            <arg name="periodic_cycle" value="$(arg periodic_cycle)"/>
+            <arg name="trajectory_topic" value="$(arg trajectory_topic)"/>
+        </include>
+    </group>
+
+    <!-- Activity Temporal Patterns -->
+    <group if="$(arg with_activity)">
+        <include file="$(find activity_temporal_patterns)/launch/actrap.launch">
+            <arg name="machine" value="$(arg machine)"/>
+            <arg name="user" value="$(arg user)"/>
+            <arg name="soma_config" value="$(arg soma_config)"/>
+            <arg name="time_window" value="$(arg time_window)"/>
+            <arg name="time_increment" value="$(arg time_increment)"/>
+            <arg name="periodic_cycle" value="$(arg periodic_cycle)"/>
+            <arg name="update_every" value="$(arg update_every)"/>
+            <arg name="activity_collection" value="$(arg activity_collection)"/>
+        </include>
+    </group>
+
+    <!-- Scene Temporal Patterns -->
+    <group if="$(arg with_scene)">
+        <include file="$(find scene_temporal_patterns)/launch/scitrap.launch">
+            <arg name="machine" value="$(arg machine)"/>
+            <arg name="user" value="$(arg user)"/>
+            <arg name="soma_config" value="$(arg soma_config)"/>
+            <arg name="time_window" value="$(arg time_window)"/>
+            <arg name="time_increment" value="$(arg time_increment)"/>
+            <arg name="periodic_cycle" value="$(arg periodic_cycle)"/>
+            <arg name="scene_topic" value="$(arg scene_topic)"/>
+        </include>
+    </group>
+
+</launch> 

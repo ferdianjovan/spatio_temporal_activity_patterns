@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package>
+  <name>temporal_patterns_launch</name>
+  <version>1.0.0</version>
+  <description>The temporal_patterns_launch package</description>
+
+  <maintainer email="fxj345@cs.bham.ac.uk">Ferdian Jovan</maintainer>
+
+  <license>MIT</license>
+
+  <author email="fxj345@cs.bham.ac.uk">Ferdian Jovan</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>activity_temporal_patterns</build_depend>
+  <build_depend>people_temporal_patterns</build_depend>
+  <build_depend>region_observation</build_depend>
+  <build_depend>rospy</build_depend>
+  <build_depend>scene_temporal_patterns</build_depend>
+  <run_depend>activity_temporal_patterns</run_depend>
+  <run_depend>people_temporal_patterns</run_depend>
+  <run_depend>region_observation</run_depend>
+  <run_depend>rospy</run_depend>
+  <run_depend>scene_temporal_patterns</run_depend>
+
+  <export>
+  </export>
+</package>

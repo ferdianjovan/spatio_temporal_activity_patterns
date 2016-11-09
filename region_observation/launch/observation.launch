@@ -1,7 +1,7 @@
 <launch>
     <arg name="soma_config"/>
     <arg name="time_increment" default="1"/>
-    <arg name="online" default="true"/>
+    <arg name="region_observation_online" default="true"/>
     
     <arg name="machine" default="localhost" />
     <arg name="user" default="" />
@@ -11,6 +11,6 @@
     <node pkg="region_observation" type="observe.py" name="region_observation" respawn="false" output="screen">
         <param name="soma_config" value="$(arg soma_config)" type="string"/>
         <param name="time_increment" value="$(arg time_increment)" type="int"/>
-        <param name="online" value="$(arg online)" type="bool"/>
+        <param name="region_observation_online" value="$(arg region_observation_online)" type="bool"/>
     </node>
 </launch>

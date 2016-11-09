@@ -21,6 +21,7 @@ class ActivityCounterService(object):
             rospy.get_param("~time_window", 10),
             rospy.get_param("~time_increment", 1),
             rospy.get_param("~periodic_cycle", 10080),
+            rospy.get_param("~update_every", 60)
         )
         self.counter.load_from_db()
         rospy.sleep(1)
@@ -109,10 +110,6 @@ class ActivityCounterService(object):
         estimates = sorted(estimates, key=lambda i: i[2], reverse=True)
         estimates = estimates[:msg.number_of_estimates]
         return zip(*estimates)[0], zip(*estimates)[1], zip(*estimates)[2]
-
-    def continuous_update(self):
-        rospy.loginfo("Continuously observing activities...")
-        self.counter.continuous_update()
 
 
 if __name__ == '__main__':
