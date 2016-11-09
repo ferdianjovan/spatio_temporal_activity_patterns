@@ -51,7 +51,12 @@ class RegionObservationProxy(object):
             new_start.minute
         )
         start_time = rospy.Time(time.mktime(new_start.timetuple()))
-        end_time = end_time - rospy.Duration(minute_increment * 60, 0)
+        new_end = datetime.datetime.fromtimestamp(end_time.secs)
+        new_end = datetime.datetime(
+            new_end.year, new_end.month, new_end.day, new_end.hour,
+            new_end.minute
+        )
+        end_time = rospy.Time(time.mktime(new_end.timetuple()))
         query = {
             "soma": self.soma_map, "soma_config": self.soma_config,
             "start_from.secs": {"$gte": start_time.secs, "$lt": end_time.secs}
