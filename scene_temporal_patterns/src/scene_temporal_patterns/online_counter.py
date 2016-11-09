@@ -94,10 +94,10 @@ class SceneCounter(object):
             self.process[roi].store_to_mongo(meta)
 
     def _pt_cb(self, msg):
-        if len(msg.change_detections) == 0:
+        if len(msg.object_centroids) == 0:
             return
         self._lock.acquire_lock()
-        self.change_detections.extend(msg.object_centroids)
+        self.change_detections.append(msg)
         self._lock.release_lock()
 
     def continuous_update(self):
@@ -121,9 +121,9 @@ class SceneCounter(object):
             self._start_time, end_time, minute_increment=self.time_increment.secs/60
         )
         temp = copy.deepcopy(self.change_detections)
-        # rospy.loginfo("Total scene changing counted so far is %d." % len(temp))
+        rospy.loginfo("Total scene deviation counted so far is %d." % len(temp))
+        rospy.loginfo("Maximum one moving objects per minute is allowed.")
 
-        not_in_any_region = True
         used_detections = list()
         count_per_region = dict()
         for observation in region_observations:
@@ -134,7 +134,6 @@ class SceneCounter(object):
                 ]
                 points = create_line_string(points)
                 if is_intersected(self.regions[observation.region_id], points):
-                    not_in_any_region = False
                     # it also must be within time boundaries
                     conditions = detection.header.stamp >= observation.start_from
                     # observation.until is secs.999999999999
@@ -146,7 +145,7 @@ class SceneCounter(object):
                 ) and (detection not in used_detections):
                     used_detections.append(detection)
             if count > 0 or observation.duration.secs >= 59:
-                count = max(1, count)
+                count = max(0, int(bool(count)))
                 if observation.region_id not in count_per_region.keys():
                     count_per_region[observation.region_id] = 0
                 count_per_region[observation.region_id] += count
