@@ -4,7 +4,18 @@
     <arg name="time_increment" default="1"/>
     <arg name="time_window" default="10"/>
     <arg name="periodic_cycle" default="10080"/>
+
     <arg name="region_observation_online" default="true"/>
+
+    <arg name="with_logging_manager" default="false"/>
+    <arg name="path_visualisation" default="false"/>
+    <arg name="online_construction" default="true"/>
+    <arg name="ubd_topic" default="/upper_body_detector/bounding_box_centres"/>
+    <arg name="collection_name" default="people_trajectory"/>
+    <arg name="logging_manager_topic" default="/logging_manager/log_stamped"/>
+    <arg name="map_info" default=""/>
+    <arg name="max_trajectories" default="10000"/>
+    <arg name="tracker_topic" default="/people_tracker_filter/positions"/>
 
     <arg name="with_scene" default="true"/>
     <arg name="scene_topic" default="/change_detection/detections"/>
@@ -21,6 +32,21 @@
 
     <machine name="$(arg machine)" address="$(arg machine)" env-loader="$(optenv ROS_ENV_LOADER )" user="$(arg user)" default="true"/>
     
+    <!-- People Trajectory - fixed -->
+    <include file="$(find human_trajectory)/launch/human_trajectory.launch">
+        <arg name="machine" value="$(arg machine)"/>
+        <arg name="user" value="$(arg user)"/>
+        <arg name="tracker_topic" value="$(arg tracker_topic)"/>
+        <arg name="with_logging_manager" value="$(arg with_logging_manager)"/>
+        <arg name="path_visualisation" value="$(arg path_visualisation)"/>
+        <arg name="online_construction" value="$(arg online_construction)"/>
+        <arg name="ubd_topic" value="$(arg ubd_topic)"/>
+        <arg name="collection_name" value="$(arg collection_name)"/>
+        <arg name="logging_manager_topic" value="$(arg logging_manager_topic)"/>
+        <arg name="map_info" value="$(arg map_info)"/>
+        <arg name="max_trajectories" value="$(arg max_trajectories)"/>
+    </include>
+
     <!-- Region Observation - fixed -->
     <include file="$(find region_observation)/launch/observation.launch">
         <arg name="machine" value="$(arg machine)"/>

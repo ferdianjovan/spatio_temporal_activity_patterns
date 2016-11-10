@@ -58,9 +58,7 @@ class ActivityCounter(object):
         rospy.loginfo("Updating activity processes for each region...")
         if self._is_stop_requested:
             return
-        act_count_per_roi, activities_per_roi = self.arc.get_activities_per_region_for_last(
-            self.update_cycle
-        )
+        act_count_per_roi, activities_per_roi = self.arc.count_activities_per_region()
         if self.arc._is_activity_received:
             for roi in self.process:
                 if self._is_stop_requested:

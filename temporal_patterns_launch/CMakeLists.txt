@@ -7,6 +7,7 @@ find_package(catkin REQUIRED COMPONENTS
   region_observation
   rospy
   scene_temporal_patterns
+  human_trajectory
 )
 
 # catkin_python_setup()
@@ -18,7 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES temporal_patterns_launch
-  CATKIN_DEPENDS activity_temporal_patterns people_temporal_patterns region_observation rospy scene_temporal_patterns
+  CATKIN_DEPENDS activity_temporal_patterns people_temporal_patterns region_observation rospy scene_temporal_patterns human_trajectory
 #  DEPENDS system_lib
 )
 

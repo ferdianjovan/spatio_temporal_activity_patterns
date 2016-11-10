@@ -13,9 +13,9 @@ class ActivityRegionCount(object):
     def __init__(
         self, config, window=rospy.Duration(600), increment=rospy.Duration(60)
     ):
+        self._start_time = rospy.Time.now()
         self.time_window = window
         self.time_increment = increment
-        self._previous_seconds = rospy.Duration(0)
         self._is_activity_received = True
         # get regions and soma-related info
         self.config = config
@@ -26,12 +26,8 @@ class ActivityRegionCount(object):
             collection=rospy.get_param("~activity_collection", "activity_learning")
         )
 
-    def get_activities_per_region_for_last(self, seconds=rospy.Duration(3600)):
-        rospy.loginfo(
-            "Obtaining activity observation from the last %d seconds" % (
-                self._previous_seconds.secs + seconds.secs
-            )
-        )
+    def count_activities_per_region(self):
+        rospy.loginfo("Counting activity observation...")
         activities_per_roi = self.get_activities_per_region(
             self.get_activities_from_mongo()
         )
@@ -41,20 +37,16 @@ class ActivityRegionCount(object):
                 rospy.loginfo("Calculating number of activities in region %s" % roi)
                 activity_count_per_roi[
                     roi
-                ] = self.group_activities_within_time_window(
-                    activities, self._previous_seconds+seconds, roi
-                )
-            self._previous_seconds = rospy.Duration(0)
-        else:
-            self._previous_seconds += seconds
+                ] = self.count_activities_within_time_window(activities, roi)
         # if acts obtained then prev_seconds is dur(0), otherwise not dur(0)
         return activity_count_per_roi, activities_per_roi
 
-    def update_activities_to_mongo(self, activities):
+    def update_activities_to_mongo(self, activities, restart_start_time=True):
         for act in activities:
-            print "updating %s" % str(act.uuid)
             act.temporal = True
             self._db.update(act, message_query={"uuid": act.uuid})
+        if restart_start_time:
+            self._start_time = rospy.Time.now()
 
     def get_activities_from_mongo(self, is_temporal=False):
         rospy.loginfo(
@@ -68,8 +60,12 @@ class ActivityRegionCount(object):
         )
         self._is_activity_received = len(logs) > 0
         # projection_query={"robot_data": 0, "skeleton_data": 0}
-        result = [log[0] for log in logs]
-        return result
+        activities = list()
+        for log in logs:
+            activities.append(log[0])
+            if self._start_time > log[0].start_time:
+                self._start_time = log[0].start_time
+        return activities
 
     def get_activities_per_region(self, activities):
         activity_group_regions = dict()
@@ -102,13 +98,12 @@ class ActivityRegionCount(object):
             between_cond = act.start_time < start_time and act.end_time >= end_time
             if end_cond or start_cond or between_cond:
                 result.append(act)
-                print "got an activity between time window: %s" % str(act.topics)
         return result
 
-    def group_activities_within_time_window(self, activities, seconds, roi=""):
+    def count_activities_within_time_window(self, activities, roi=""):
         counts = dict()
+        start_time = self._start_time
         end_time = rospy.Time.now()
-        start_time = end_time - seconds
         mid_end = start_time + self.time_window
         while mid_end <= end_time:
             tmp_activities = self._get_activities_within_time_window(
