@@ -111,7 +111,8 @@ class SceneCounterService(object):
                 roi: sum(val.values()) for roi, val in rois_scene.iteritems() if len(val) > 0
             }
             if len(rois_scene.values()) > 0:
-                for i in range(3):  # for each time point, pick the highest 3 regions
+                # for each time point, pick the highest 3 regions
+                for i in range(min(len(rois_scene.values()), 3)):
                     estimate = max(rois_scene.values())
                     roi = rois_scene.keys()[rois_scene.values().index(estimate)]
                     estimates.append((start, roi, estimate))

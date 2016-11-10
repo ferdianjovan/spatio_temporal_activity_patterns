@@ -114,6 +114,5 @@ class ActivityCounterService(object):
 
 if __name__ == '__main__':
     rospy.init_node("activity_counter")
-    acs = ActivityCounterService()
-    acs.continuous_update()
+    ActivityCounterService()
     rospy.spin()

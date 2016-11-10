@@ -31,6 +31,10 @@ class ActivityCounter(object):
         self.periodic_cycle = periodic_cycle
         self.time_window = rospy.Duration(window*60)
         self.time_increment = rospy.Duration(increment*60)
+        if update_every < window:
+            rospy.logwarn("Update cycle must be bigger than time window")
+            rospy.loginfo("Setting update cycle the same as time window...")
+            update_every = window
         self.update_cycle = rospy.Duration(update_every*60)
         self.arc = ActivityRegionCount(
             self.config, self.time_window, self.time_increment
@@ -54,22 +58,23 @@ class ActivityCounter(object):
         rospy.loginfo("Updating activity processes for each region...")
         if self._is_stop_requested:
             return
-        act_count_per_roi = self.arc.get_activities_per_region_for_last(
+        act_count_per_roi, activities_per_roi = self.arc.get_activities_per_region_for_last(
             self.update_cycle
         )
         if self.arc._is_activity_received:
             for roi in self.process:
                 if self._is_stop_requested:
                     break
-                rospy.loginfo("Updating activity processes for region %s..." % roi)
+                rospy.loginfo(
+                    "Updating activity processes for region %s..." % roi
+                )
                 count_per_time = dict()
-                if roi in act_count_per_roi:
+                if roi in act_count_per_roi and len(act_count_per_roi[roi]):
                     count_per_time = act_count_per_roi[roi]
-                self.update_activity_process(roi, count_per_time)
+                    self._update_activity_process(roi, count_per_time)
+                    self.arc.update_activities_to_mongo(activities_per_roi[roi])
 
     def _update_activity_process(self, roi, count_per_time):
-        if not len(count_per_time):
-            return
         ordered = sorted(count_per_time.keys())
         for start in ordered:
             if self._is_stop_requested:

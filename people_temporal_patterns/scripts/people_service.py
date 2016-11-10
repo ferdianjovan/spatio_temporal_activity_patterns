@@ -112,7 +112,8 @@ class PeopleCounterService(object):
                 roi: sum(val.values()) for roi, val in rois_people.iteritems() if len(val) > 0
             }
             if len(rois_people.values()) > 0:
-                for i in range(3):  # for each time point, pick the highest 3 regions
+                # for each time point, pick the highest 3 regions
+                for i in range(min(len(rois_people.values()), 3)):
                     estimate = max(rois_people.values())
                     roi = rois_people.keys()[rois_people.values().index(estimate)]
                     estimates.append((start, roi, estimate))
