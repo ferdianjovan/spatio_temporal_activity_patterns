@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
+import copy
 import rospy
 import numpy as np
 from activity_data.msg import HumanActivities
+from region_observation.util import get_soma_info
 from mongodb_store.message_store import MessageStoreProxy
+from region_observation.util import create_line_string, is_intersected
 from region_observation.observation_proxy import RegionObservationProxy
-from region_observation.util import create_line_string, is_intersected, get_soma_info
 
 
 class ActivityRegionCount(object):
@@ -13,6 +15,7 @@ class ActivityRegionCount(object):
     def __init__(
         self, config, window=rospy.Duration(600), increment=rospy.Duration(60)
     ):
+        self._total_activities = 0
         self._start_time = rospy.Time.now()
         self.time_window = window
         self.time_increment = increment
@@ -23,7 +26,9 @@ class ActivityRegionCount(object):
         self.obs_proxy = RegionObservationProxy(self.map, config)
         # activity related
         self._db = MessageStoreProxy(
-            collection=rospy.get_param("~activity_collection", "activity_learning")
+            collection=rospy.get_param(
+                "~activity_collection", "activity_learning"
+            )
         )
 
     def count_activities_per_region(self):
@@ -31,15 +36,21 @@ class ActivityRegionCount(object):
         activities_per_roi = self.get_activities_per_region(
             self.get_activities_from_mongo()
         )
+        backup = copy.deepcopy(activities_per_roi)
         activity_count_per_roi = dict()
         if self._is_activity_received:
-            for roi, activities in activities_per_roi.iteritems():
-                rospy.loginfo("Calculating number of activities in region %s" % roi)
+            for roi, _ in self.regions.iteritems():
+                rospy.loginfo(
+                    "Calculating number of activities in region %s" % roi
+                )
+                activities = list()
+                if roi in activities_per_roi:
+                    activities = activities_per_roi[roi]
                 activity_count_per_roi[
                     roi
                 ] = self.count_activities_within_time_window(activities, roi)
         # if acts obtained then prev_seconds is dur(0), otherwise not dur(0)
-        return activity_count_per_roi, activities_per_roi
+        return activity_count_per_roi, backup
 
     def update_activities_to_mongo(self, activities, restart_start_time=True):
         for act in activities:
@@ -65,6 +76,9 @@ class ActivityRegionCount(object):
             activities.append(log[0])
             if self._start_time > log[0].start_time:
                 self._start_time = log[0].start_time
+            act_len = len(log[0].topics)
+            if act_len > self._total_activities:
+                self._total_activities = act_len
         return activities
 
     def get_activities_per_region(self, activities):
@@ -106,32 +120,44 @@ class ActivityRegionCount(object):
         end_time = rospy.Time.now()
         mid_end = start_time + self.time_window
         while mid_end <= end_time:
-            tmp_activities = self._get_activities_within_time_window(
-                activities, start_time
-            )
-            tmp_activities = np.array(
-                [act.topics for act in tmp_activities], dtype="float64"
-            )
-            tmp_activities = [i/np.linalg.norm(i) for i in tmp_activities]
-            count = sum(tmp_activities)
-            print "roi: %s, counts: %s" % (roi, str(count))
-            if True not in np.isnan(count):
-                region_observations = self.obs_proxy.load_msg(
-                    start_time, mid_end, roi=roi,
-                    minute_increment=self.time_increment.secs/60
+            tmp_activities = list()
+            count = 0
+            if len(activities) > 0:
+                tmp_activities = self._get_activities_within_time_window(
+                    activities, start_time
                 )
-                total_observation_time = rospy.Duration(0, 0)
-                for obs in region_observations:
-                    total_observation_time += obs.duration
-                if len(tmp_activities) > 0 or len(region_observations) == (
-                    self.time_window.secs / self.time_increment.secs
-                ):
-                    tmp = total_observation_time.secs / float(self.time_window.secs)
-                    if tmp <= 0.333:
-                        count *= 3
-                    elif tmp > 0.333 and tmp <= 0.6777:
-                        count *= 1.5
-                    counts.update({start_time: count})
+                tmp_activities = np.array(
+                    [act.topics for act in tmp_activities], dtype="float64"
+                )
+                tmp_activities = [i/np.linalg.norm(i) for i in tmp_activities]
+                count = sum(tmp_activities)
+            region_observations = self.obs_proxy.load_msg(
+                start_time, mid_end, roi=roi,
+                minute_increment=self.time_increment.secs/60
+            )
+            total_observation_time = rospy.Duration(0, 0)
+            for obs in region_observations:
+                total_observation_time += obs.duration
+            # print "roi: %s, observation time: %d, counts: %s" % (
+            #     roi, total_observation_time.secs, str(count)
+            # )
+            exist_act = (
+                len(tmp_activities) > 0 and True not in np.isnan(count)
+            )
+            full_obs = len(region_observations) == (
+                self.time_window.secs / self.time_increment.secs
+            )
+            if exist_act or full_obs:
+                tmp = total_observation_time.secs / float(
+                    self.time_window.secs
+                )
+                if tmp <= 0.333:
+                    count *= 3
+                elif tmp > 0.333 and tmp <= 0.6777:
+                    count *= 1.5
+                if not exist_act:
+                    count = [0.0 for i in range(self._total_activities)]
+                counts.update({start_time: count})
             start_time = start_time + self.time_increment
             mid_end = start_time + self.time_window
         return counts

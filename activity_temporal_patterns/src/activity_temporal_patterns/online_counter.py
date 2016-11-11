@@ -31,10 +31,6 @@ class ActivityCounter(object):
         self.periodic_cycle = periodic_cycle
         self.time_window = rospy.Duration(window*60)
         self.time_increment = rospy.Duration(increment*60)
-        if update_every < window:
-            rospy.logwarn("Update cycle must be bigger than time window")
-            rospy.loginfo("Setting update cycle the same as time window...")
-            update_every = window
         self.update_cycle = rospy.Duration(update_every*60)
         self.arc = ActivityRegionCount(
             self.config, self.time_window, self.time_increment
