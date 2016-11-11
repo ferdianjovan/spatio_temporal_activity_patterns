@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
+from activity_temporal_patterns.detect_peaks import detect_peaks
 from activity_temporal_patterns.online_counter import ActivityCounter
 from activity_temporal_patterns.srv import ActivityEstimateSrv, ActivityEstimateSrvResponse
 from activity_temporal_patterns.srv import ActivityBestTimeEstimateSrv, ActivityBestTimeEstimateSrvResponse
@@ -84,10 +85,30 @@ class ActivityCounterService(object):
             "Got a request to find %s highest intensity of activities within %d and %d..."
             % (str(msg.number_of_estimates), msg.start_time.secs, msg.end_time.secs)
         )
-        times, rois, estimates = self._find_highest_estimates(msg)
+        times, rois, estimates = self._find_peak_estimates(msg)
+        # times, rois, estimates = self._find_highest_estimates(msg)
         estimate = ActivityBestTimeEstimateSrvResponse(times, rois, estimates)
         rospy.loginfo("Activity estimate: %s" % str(estimate))
         return estimate
+
+    def _find_peak_estimates(self, msg):
+        estimates = dict()
+        rois_people = self.counter.retrieve_from_to(
+            msg.start_time, msg.end_time, msg.upper_bound
+        )
+        for roi, acts in rois_people.iteritems():
+            for act, val in acts.iteritems():
+                times = val.keys()
+                rates = val.values()
+                peak_idx = detect_peaks(rates)
+                tmp = [(times[idx], roi, act, rates[idx]) for idx in peak_idx]
+                estimates.extend(tmp)
+        estimates = sorted(estimates, key=lambda i: i[3], reverse=True)
+        estimates = estimates[:msg.number_of_estimates]
+        if len(estimates) > 0:
+            return zip(*estimates)[0], zip(*estimates)[1], zip(*estimates)[2], zip(*estimates)[3]
+        else:
+            return list(), list(), list(), list()
 
     def _find_highest_estimates(self, msg):
         estimates = list()  # each point is a tuple of (time, region, estimate)

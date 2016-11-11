@@ -2,6 +2,7 @@
 
 import rospy
 from std_srvs.srv import Empty, EmptyResponse
+from scene_temporal_patterns.detect_peaks import detect_peaks
 from scene_temporal_patterns.online_counter import SceneCounter
 from scene_temporal_patterns.srv import SceneEstimateSrv, SceneEstimateSrvResponse
 from scene_temporal_patterns.srv import SceneBestTimeEstimateSrv, SceneBestTimeEstimateSrvResponse
@@ -95,10 +96,30 @@ class SceneCounterService(object):
             "Got a request to find %s highest number of scene changing within %d and %d..."
             % (str(msg.number_of_estimates), msg.start_time.secs, msg.end_time.secs)
         )
-        times, rois, estimates = self._find_highest_estimates(msg)
+        times, rois, estimates = self._find_peak_estimates(msg)
+        # times, rois, estimates = self._find_highest_estimates(msg)
         estimate = SceneBestTimeEstimateSrvResponse(times, rois, estimates)
         rospy.loginfo("Scene estimate: %s" % str(estimate))
         return estimate
+
+    def _find_peak_estimates(self, msg):
+        estimates = list()
+        rois_scene = self.counter.retrieve_from_to(
+            msg.start_time, msg.end_time, msg.upper_bound
+        )
+        for roi, val in rois_scene.iteritems():
+            # dict.keys() and dict.values() should give the same order of items
+            times = val.keys()
+            rates = val.values()
+            peak_idx = detect_peaks(rates)
+            tmp = [(times[idx], roi, rates[idx]) for idx in peak_idx]
+            estimates.extend(tmp)
+        estimates = sorted(estimates, key=lambda i: i[2], reverse=True)
+        estimates = estimates[:msg.number_of_estimates]
+        if len(estimates) > 0:
+            return zip(*estimates)[0], zip(*estimates)[1], zip(*estimates)[2]
+        else:
+            return list(), list(), list()
 
     def _find_highest_estimates(self, msg):
         estimates = list()  # each point is a tuple of (time, region, estimate)
