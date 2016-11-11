@@ -78,8 +78,6 @@ class PeopleCounterService(object):
                 assert len(estimates) == 1, "len:%d (len should be 1), start:%d, end:%d" % (
                     len(estimates), start.secs, (start+self.time_window).secs
                 )
-                if sum(estimates.values()) > 100:
-                    print roi, estimates, start.secs, self.time_window.secs
                 if roi not in result:
                     result[roi] = 0
                 result[roi] += sum(estimates.values())
@@ -110,10 +108,13 @@ class PeopleCounterService(object):
         )
         for roi, val in rois_people.iteritems():
             # dict.keys() and dict.values() should give the same order of items
-            times = val.keys()
-            rates = val.values()
-            peak_idx = detect_peaks(rates)
-            tmp = [(times[idx], roi, rates[idx]) for idx in peak_idx]
+            times = sorted(val.keys())
+            rates = [val[key] for key in times]
+            peak_idx = detect_peaks(rates, mpd=len(times)/10)
+            tmp = [(
+                rospy.Time(int(times[idx].split("-")[0])), roi, rates[idx]
+            ) for idx in peak_idx]
+            # plot_peaks(np.array(rates), peak_idx, algorithm="Region %s" % roi)
             estimates.extend(tmp)
         estimates = sorted(estimates, key=lambda i: i[2], reverse=True)
         estimates = estimates[:msg.number_of_estimates]
