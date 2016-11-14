@@ -48,6 +48,8 @@ class SceneCounterService(object):
             rospy.get_param("~time_increment", 1),
             rospy.get_param("~periodic_cycle", 10080),
         )
+        # load_from_db for the current version
+        self.counter.load_from_db()
         self.counter.continuous_update()
         return EmptyResponse()
 

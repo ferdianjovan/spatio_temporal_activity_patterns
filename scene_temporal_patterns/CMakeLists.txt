@@ -4,6 +4,7 @@ project(scene_temporal_patterns)
 find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
+  std_srvs
   region_observation
   simple_change_detector
   spectral_poisson_processes
@@ -45,7 +46,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES scene_temporal_patterns
- CATKIN_DEPENDS region_observation rospy simple_change_detector spectral_poisson_processes std_msgs
+ CATKIN_DEPENDS region_observation rospy simple_change_detector spectral_poisson_processes std_msgs std_srvs
 #  DEPENDS system_lib
 )
 

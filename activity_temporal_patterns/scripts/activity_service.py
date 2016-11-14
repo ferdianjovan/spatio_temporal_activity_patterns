@@ -3,6 +3,7 @@
 import copy
 import rospy
 import numpy as np
+from std_srvs.srv import Empty, EmptyResponse
 from activity_temporal_patterns.detect_peaks import detect_peaks
 from activity_temporal_patterns.online_counter import ActivityCounter
 from activity_temporal_patterns.srv import ActivityEstimateSrv, ActivityEstimateSrvResponse
@@ -29,7 +30,7 @@ class ActivityCounterService(object):
         self.counter.load_from_db()
         rospy.sleep(1)
         rospy.loginfo("Preparing %s/activity_estimate service..." % rospy.get_name())
-        self.service = rospy.Service(
+        rospy.Service(
             '%s/activity_estimate' % rospy.get_name(),
             ActivityEstimateSrv, self._srv_cb
         )
@@ -38,7 +39,24 @@ class ActivityCounterService(object):
             '%s/activity_best_time_estimate' % rospy.get_name(),
             ActivityBestTimeEstimateSrv, self._srv_best_cb
         )
+        rospy.Service(
+            '%s/restart' % rospy.get_name(), Empty, self._restart_srv_cb
+        )
         rospy.sleep(0.1)
+
+    def _restart_srv_cb(self, msg):
+        self.counter.request_stop_update()
+        self.counter = ActivityCounter(
+            rospy.get_param("~soma_config", "activity_exploration"),
+            rospy.get_param("~time_window", 10),
+            rospy.get_param("~time_increment", 1),
+            rospy.get_param("~periodic_cycle", 10080),
+            rospy.get_param("~update_every", 60)
+        )
+        # load_from_db for the current version
+        self.counter.load_from_db()
+        self.counter.continuous_update()
+        return EmptyResponse()
 
     def _srv_cb(self, msg):
         rois = list()
