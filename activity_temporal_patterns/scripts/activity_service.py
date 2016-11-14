@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
+import copy
 import rospy
+import numpy as np
 from activity_temporal_patterns.detect_peaks import detect_peaks
 from activity_temporal_patterns.online_counter import ActivityCounter
 from activity_temporal_patterns.srv import ActivityEstimateSrv, ActivityEstimateSrvResponse
@@ -86,23 +88,38 @@ class ActivityCounterService(object):
             % (str(msg.number_of_estimates), msg.start_time.secs, msg.end_time.secs)
         )
         times, rois, estimates = self._find_peak_estimates(msg)
-        # times, rois, estimates = self._find_highest_estimates(msg)
+        if len(times) == 0 and len(rois) == 0 and len(estimates) == 0:
+            times, rois, estimates = self._find_highest_estimates(msg)
         estimate = ActivityBestTimeEstimateSrvResponse(times, rois, estimates)
         rospy.loginfo("Activity estimate: %s" % str(estimate))
         return estimate
 
     def _find_peak_estimates(self, msg):
-        estimates = dict()
-        rois_people = self.counter.retrieve_from_to(
+        estimates = list()
+        rois_activity = self.counter.retrieve_from_to(
             msg.start_time, msg.end_time, msg.upper_bound
         )
-        for roi, acts in rois_people.iteritems():
+        for roi, acts in rois_activity.iteritems():
+            roi_level_rates = list()
+            roi_level_times = list()
             for act, val in acts.iteritems():
-                times = val.keys()
-                rates = val.values()
-                peak_idx = detect_peaks(rates)
-                tmp = [(times[idx], roi, act, rates[idx]) for idx in peak_idx]
-                estimates.extend(tmp)
+                times = sorted(val.keys())
+                if roi_level_times != list():
+                    assert len(times) == len(roi_level_times), "Length of data between two activities is not same"
+                roi_level_times = copy.deepcopy(times)
+                rates = [val[key] for key in times]
+                if roi_level_rates == list() and len(rates) > 0:
+                    # assuming all rates have the same length!!!
+                    roi_level_rates = np.zeros(len(rates))
+                roi_level_rates += np.array(rates)
+            if roi_level_rates != list():
+                roi_level_rates = roi_level_rates.to_list()
+            peak_idx = detect_peaks(roi_level_rates)
+            tmp = [(
+                rospy.Time(int(roi_level_times[idx].split("-")[0])),
+                roi, roi_level_rates[idx]
+            ) for idx in peak_idx]
+            estimates.extend(tmp)
         estimates = sorted(estimates, key=lambda i: i[3], reverse=True)
         estimates = estimates[:msg.number_of_estimates]
         if len(estimates) > 0:
@@ -119,10 +136,11 @@ class ActivityCounterService(object):
             )
             rois_activity = {
                 roi: sum(
-                    [sum(val.values()) for val in acts.itervalues()]
+                    [sum(val.values()) for val in acts.itervalues() if len(val) > 0]
                 ) for roi, acts in rois_activity.iteritems()
             }
-            for i in range(3):  # for each time point, pick the highest 3 regions
+            # if len(rois_activity.values()) > 0 and roi_activitiy.values()[0]
+            for i in range(min(len(rois_activity), 3)):
                 estimate = max(rois_activity.values())
                 roi = rois_activity.keys()[rois_activity.values().index(estimate)]
                 estimates.append((start, roi, estimate))
@@ -130,7 +148,10 @@ class ActivityCounterService(object):
             start = start + self.time_increment
         estimates = sorted(estimates, key=lambda i: i[2], reverse=True)
         estimates = estimates[:msg.number_of_estimates]
-        return zip(*estimates)[0], zip(*estimates)[1], zip(*estimates)[2]
+        if len(estimates) > 0:
+            return zip(*estimates)[0], zip(*estimates)[1], zip(*estimates)[2]
+        else:
+            return list(), list(), list()
 
 
 if __name__ == '__main__':

@@ -22,7 +22,7 @@ class PeopleCounterService(object):
             rospy.get_param("~soma_config", "activity_exploration"),
             rospy.get_param("~time_window", 10),
             rospy.get_param("~time_increment", 1),
-            rospy.get_param("~periodic_cycle", 10080),
+            rospy.get_param("~periodic_cycle", 10080)
         )
         self.counter.load_from_db()
         rospy.sleep(1)
@@ -96,7 +96,8 @@ class PeopleCounterService(object):
             % (str(msg.number_of_estimates), msg.start_time.secs, msg.end_time.secs)
         )
         times, rois, estimates = self._find_peak_estimates(msg)
-        # times, rois, estimates = self._find_highest_estimates(msg)
+        if len(times) == 0 and len(rois) == 0 and len(estimates) == 0:
+            times, rois, estimates = self._find_highest_estimates(msg)
         estimate = PeopleBestTimeEstimateSrvResponse(times, rois, estimates)
         rospy.loginfo("People estimate: %s" % str(estimate))
         return estimate
@@ -133,13 +134,12 @@ class PeopleCounterService(object):
             rois_people = {
                 roi: sum(val.values()) for roi, val in rois_people.iteritems() if len(val) > 0
             }
-            if len(rois_people.values()) > 0:
-                # for each time point, pick the highest 3 regions
-                for i in range(min(len(rois_people.values()), 3)):
-                    estimate = max(rois_people.values())
-                    roi = rois_people.keys()[rois_people.values().index(estimate)]
-                    estimates.append((start, roi, estimate))
-                    del rois_people[roi]
+            # for each time point, pick the highest 3 regions
+            for i in range(min(len(rois_people), 3)):
+                estimate = max(rois_people.values())
+                roi = rois_people.keys()[rois_people.values().index(estimate)]
+                estimates.append((start, roi, estimate))
+                del rois_people[roi]
             start = start + self.time_increment
         estimates = sorted(estimates, key=lambda i: i[2], reverse=True)
         estimates = estimates[:msg.number_of_estimates]

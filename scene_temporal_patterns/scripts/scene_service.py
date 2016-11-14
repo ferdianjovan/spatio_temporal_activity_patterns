@@ -97,7 +97,8 @@ class SceneCounterService(object):
             % (str(msg.number_of_estimates), msg.start_time.secs, msg.end_time.secs)
         )
         times, rois, estimates = self._find_peak_estimates(msg)
-        # times, rois, estimates = self._find_highest_estimates(msg)
+        if len(times) == 0 and len(rois) == 0 and len(estimates) == 0:
+            times, rois, estimates = self._find_highest_estimates(msg)
         estimate = SceneBestTimeEstimateSrvResponse(times, rois, estimates)
         rospy.loginfo("Scene estimate: %s" % str(estimate))
         return estimate
@@ -109,10 +110,12 @@ class SceneCounterService(object):
         )
         for roi, val in rois_scene.iteritems():
             # dict.keys() and dict.values() should give the same order of items
-            times = val.keys()
-            rates = val.values()
-            peak_idx = detect_peaks(rates)
-            tmp = [(times[idx], roi, rates[idx]) for idx in peak_idx]
+            times = sorted(val.keys())
+            rates = [val[key] for key in times]
+            peak_idx = detect_peaks(rates, mpd=len(times)/10)
+            tmp = [(
+                rospy.Time(int(times[idx].split("-")[0])), roi, rates[idx]
+            ) for idx in peak_idx]
             estimates.extend(tmp)
         estimates = sorted(estimates, key=lambda i: i[2], reverse=True)
         estimates = estimates[:msg.number_of_estimates]
@@ -131,13 +134,12 @@ class SceneCounterService(object):
             rois_scene = {
                 roi: sum(val.values()) for roi, val in rois_scene.iteritems() if len(val) > 0
             }
-            if len(rois_scene.values()) > 0:
-                # for each time point, pick the highest 3 regions
-                for i in range(min(len(rois_scene.values()), 3)):
-                    estimate = max(rois_scene.values())
-                    roi = rois_scene.keys()[rois_scene.values().index(estimate)]
-                    estimates.append((start, roi, estimate))
-                    del rois_scene[roi]
+            # for each time point, pick the highest 3 regions
+            for i in range(min(len(rois_scene), 3)):
+                estimate = max(rois_scene.values())
+                roi = rois_scene.keys()[rois_scene.values().index(estimate)]
+                estimates.append((start, roi, estimate))
+                del rois_scene[roi]
             start = start + self.time_increment
         estimates = sorted(estimates, key=lambda i: i[2], reverse=True)
         estimates = estimates[:msg.number_of_estimates]
