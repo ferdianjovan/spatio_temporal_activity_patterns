@@ -121,6 +121,8 @@ class ActivityCounterService(object):
             roi_level_rates = list()
             roi_level_times = list()
             for act, val in acts.iteritems():
+                if len(val) == 0:
+                    continue
                 times = sorted(val.keys())
                 if roi_level_times != list():
                     assert len(times) == len(roi_level_times), "Length of data between two activities is not same"
@@ -131,19 +133,21 @@ class ActivityCounterService(object):
                     roi_level_rates = np.zeros(len(rates))
                 roi_level_rates += np.array(rates)
             if roi_level_rates != list():
-                roi_level_rates = roi_level_rates.to_list()
-            peak_idx = detect_peaks(roi_level_rates)
+                roi_level_rates = roi_level_rates.tolist()
+            else:
+                continue
+            peak_idx = detect_peaks(roi_level_rates, mpd=len(roi_level_rates)/10)
             tmp = [(
                 rospy.Time(int(roi_level_times[idx].split("-")[0])),
                 roi, roi_level_rates[idx]
             ) for idx in peak_idx]
             estimates.extend(tmp)
-        estimates = sorted(estimates, key=lambda i: i[3], reverse=True)
+        estimates = sorted(estimates, key=lambda i: i[2], reverse=True)
         estimates = estimates[:msg.number_of_estimates]
         if len(estimates) > 0:
-            return zip(*estimates)[0], zip(*estimates)[1], zip(*estimates)[2], zip(*estimates)[3]
+            return zip(*estimates)[0], zip(*estimates)[1], zip(*estimates)[2]
         else:
-            return list(), list(), list(), list()
+            return list(), list(), list()
 
     def _find_highest_estimates(self, msg):
         estimates = list()  # each point is a tuple of (time, region, estimate)

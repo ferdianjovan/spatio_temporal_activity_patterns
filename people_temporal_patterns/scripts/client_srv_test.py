@@ -9,14 +9,13 @@ class PeopleClientSrv(object):
 
     def __init__(self, start_time, duration):
         self.service_estimate = rospy.ServiceProxy(
-            "/people_counter/people_estimate",
-            PeopleEstimateSrv
+            "/people_counter/people_estimate", PeopleEstimateSrv
         )
         self.service_estimate.wait_for_service()
         self.service_best_time_estimate = rospy.ServiceProxy(
-            "/people_counter/people_best_time_estimate",
-            PeopleBestTimeEstimateSrv
+            "/people_counter/people_best_time_estimate", PeopleBestTimeEstimateSrv
         )
+        self.service_best_time_estimate.wait_for_service()
         start = rospy.Time.now() - rospy.Duration(start_time)
         end = start + rospy.Duration(duration)
         result = self.service_estimate(start, end, True, False)

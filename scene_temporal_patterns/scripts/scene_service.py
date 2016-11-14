@@ -111,6 +111,8 @@ class SceneCounterService(object):
             msg.start_time, msg.end_time, msg.upper_bound
         )
         for roi, val in rois_scene.iteritems():
+            if len(val) == 0:
+                continue
             # dict.keys() and dict.values() should give the same order of items
             times = sorted(val.keys())
             rates = [val[key] for key in times]
