@@ -66,7 +66,10 @@ class ActivityCounter(object):
                 if roi in act_count_per_roi and len(act_count_per_roi[roi]):
                     count_per_time = act_count_per_roi[roi]
                     self._update_activity_process(roi, count_per_time)
-                    self.arc.update_activities_to_mongo(activities_per_roi[roi])
+                    if roi in activities_per_roi:
+                        self.arc.update_activities_to_mongo(
+                            activities_per_roi[roi]
+                        )
 
     def _update_activity_process(self, roi, count_per_time):
         ordered = sorted(count_per_time.keys())

@@ -8,7 +8,7 @@
 
     <machine name="$(arg machine)" address="$(arg machine)" env-loader="$(optenv ROS_ENV_LOADER )" user="$(arg user)" default="true"/>
 
-    <node pkg="region_observation" type="observe.py" name="region_observation" respawn="false" output="screen">
+    <node pkg="region_observation" type="observe.py" name="region_observation" respawn="false" output="log">
         <param name="soma_config" value="$(arg soma_config)" type="string"/>
         <param name="time_increment" value="$(arg time_increment)" type="int"/>
         <param name="region_observation_online" value="$(arg region_observation_online)" type="bool"/>
