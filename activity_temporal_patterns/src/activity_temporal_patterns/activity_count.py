@@ -83,6 +83,7 @@ class ActivityRegionCount(object):
 
     def get_activities_per_region(self, activities):
         activity_group_regions = dict()
+        activities_not_in_regions = list()
         for roi, region in self.regions.iteritems():
             for activity in activities:
                 point = create_line_string(
@@ -92,6 +93,12 @@ class ActivityRegionCount(object):
                     if roi not in activity_group_regions:
                         activity_group_regions[roi] = list()
                     activity_group_regions[roi].append(activity)
+                    if activity not in activities_not_in_regions:
+                        activities_not_in_regions.append(activity)
+        activities_not_in_regions = [
+            i for i in activities if i not in activities_not_in_regions
+        ]
+        self.update_activities_to_mongo(activities_not_in_regions, False)
         for roi, val in activity_group_regions.iteritems():
             rospy.loginfo(
                 "%d activities are found in region %s" % (len(val), roi)
