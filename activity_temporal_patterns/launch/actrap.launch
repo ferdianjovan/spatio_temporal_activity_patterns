@@ -3,20 +3,20 @@
     <arg name="time_increment" default="1"/>
     <arg name="time_window" default="10"/>
     <arg name="periodic_cycle" default="10080"/>
-    <arg name="skeleton_collection" default="people_skeleton"/>
-    <arg name="activity_learning_path" default="/home/fxj345/SkeletonDataset/Learning/accumulate_data"/>
+    <arg name="update_every" default="60"/>
+    <arg name="activity_collection" default="activity_learning"/>
     
     <arg name="machine" default="localhost" />
     <arg name="user" default="" />
 
     <machine name="$(arg machine)" address="$(arg machine)" env-loader="$(optenv ROS_ENV_LOADER )" user="$(arg user)" default="true"/>
 
-    <node pkg="activity_temporal_patterns" type="activity_service.py" name="activity_counter" respawn="false" output="screen">
+    <node pkg="activity_temporal_patterns" type="activity_service.py" name="activity_counter" respawn="false" output="log">
         <param name="soma_config" value="$(arg soma_config)" type="string"/>
-        <param name="skeleton_collection" value="$(arg skeleton_collection)" type="string"/>
-        <param name="activity_learning_path" value="$(arg activity_learning_path)" type="string"/>
+        <param name="activity_collection" value="$(arg activity_collection)" type="string"/>
         <param name="time_increment" value="$(arg time_increment)" type="int"/>
         <param name="time_window" value="$(arg time_window)" type="int"/>
+        <param name="update_every" value="$(arg update_every)" type="int"/>
         <param name="periodic_cycle" value="$(arg periodic_cycle)" type="int"/>
     </node>
 </launch>

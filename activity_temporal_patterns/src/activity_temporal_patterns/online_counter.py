@@ -1,65 +1,99 @@
 #!/usr/bin/env python
 
-import copy
-import time
 import rospy
-import datetime
 from region_observation.util import get_soma_info
 from spectral_processes.processes import SpectralPoissonProcesses
-from activity_temporal_patterns.activity_count import DailyActivityRegionCount
+from activity_temporal_patterns.activity_count import ActivityRegionCount
 
 
 class ActivityCounter(object):
 
     def __init__(
-        self, config, window=10, increment=1, periodic_cycle=10080
+        self, config, window=10, increment=1, periodic_cycle=10080,
+        update_every=60
     ):
         rospy.loginfo("Starting activity processes...")
         self._start_time = None
         self._max_activity_types = 15
-        self._last_learning_date = datetime.date.fromtimestamp(rospy.Time.now().secs)
+        # for pause feature
+        self._is_stop_requested = False
+        self._is_stopped = False
         # get soma-related info
         self.config = config
         self.regions, self.map = get_soma_info(config)
         # for each roi create PoissonProcesses
-        rospy.loginfo("Time window is %d minute with increment %d minute" % (window, increment))
+        rospy.loginfo(
+            "Time window is %d minute with increment %d minute" % (
+                window, increment
+            )
+        )
+        rospy.loginfo("Updating model every %d minute" % update_every)
         self.periodic_cycle = periodic_cycle
         self.time_window = rospy.Duration(window*60)
         self.time_increment = rospy.Duration(increment*60)
-        rospy.loginfo("Creating a periodic cycle every %d minutes" % periodic_cycle)
-        self.process = {roi: dict() for roi in self.regions}
-
-    def learn_activity_patterns(self, date):
-        darc = DailyActivityRegionCount(
-            date, self.config, self.time_window, self.time_increment
+        self.update_cycle = rospy.Duration(update_every*60)
+        self.arc = ActivityRegionCount(
+            self.config, self.time_window, self.time_increment
         )
-        act_count_per_roi = darc.activity_count_per_roi
-        if darc._is_activity_received:
+        rospy.loginfo(
+            "Creating a periodic cycle every %d minutes" % periodic_cycle
+        )
+        self.process = {roi: dict() for roi in self.regions}
+        rospy.loginfo("Continuously observing activities...")
+        rospy.Timer(self.update_cycle, self.learn_activity_patterns)
+
+    def request_stop_update(self):
+        self._is_stop_requested = True
+        while not self._is_stopped:
+            rospy.sleep(0.1)
+
+    def request_continue_update(self):
+        self._is_stop_requested = False
+
+    def learn_activity_patterns(self, event):
+        rospy.loginfo("Updating activity processes for each region...")
+        if self._is_stop_requested:
+            return
+        act_count_per_roi, activities_per_roi = self.arc.count_activities_per_region()
+        if self.arc._is_activity_received:
             for roi in self.process:
-                rospy.loginfo("Updating activity processes for region %s..." % roi)
+                if self._is_stop_requested:
+                    break
+                rospy.loginfo(
+                    "Updating activity processes for region %s..." % roi
+                )
                 count_per_time = dict()
-                if roi in act_count_per_roi:
+                if roi in act_count_per_roi and len(act_count_per_roi[roi]):
                     count_per_time = act_count_per_roi[roi]
-                if len(count_per_time):
-                    ordered = sorted(count_per_time.keys())
-                    for start in ordered:
-                        count_per_act = count_per_time[start]
-                        for act_ind, count in enumerate(count_per_act):
-                            if act_ind not in self.process[roi]:
-                                self.process[roi][act_ind] = SpectralPoissonProcesses(
-                                    self.time_window.secs/60,
-                                    self.time_increment.secs/60, self.periodic_cycle
-                                )
-                            self.process[roi][act_ind].update(start, count)
-                            self._store(roi, act_ind, start)
-                            # updating general starting time of the whole processes
-                            cond = self.process[roi][act_ind]._init_time is not None
-                            cond = cond and (
-                                self._start_time is None or self._start_time > self.process[roi][act_ind]._init_time
-                            )
-                            if cond:
-                                self._start_time = self.process[roi][act_ind]._init_time
-        return darc._is_activity_received
+                    self._update_activity_process(roi, count_per_time)
+                    if roi in activities_per_roi:
+                        self.arc.update_activities_to_mongo(
+                            activities_per_roi[roi]
+                        )
+
+    def _update_activity_process(self, roi, count_per_time):
+        ordered = sorted(count_per_time.keys())
+        for start in ordered:
+            if self._is_stop_requested:
+                break
+            count_per_act = count_per_time[start]
+            for act_ind, count in enumerate(count_per_act):
+                if act_ind not in self.process[roi]:
+                    self.process[roi][act_ind] = SpectralPoissonProcesses(
+                        self.time_window.secs/60,
+                        self.time_increment.secs/60, self.periodic_cycle
+                    )
+                self.process[roi][act_ind].update(start, count)
+                self._store(roi, act_ind, start)
+                # updating general starting time of the whole processes
+                cond = self.process[roi][act_ind]._init_time is not None
+                cond = cond and (
+                    self._start_time is None or (
+                        self._start_time > self.process[roi][act_ind]._init_time
+                    )
+                )
+                if cond:
+                    self._start_time = self.process[roi][act_ind]._init_time
 
     def _store(self, roi, act, start_time):
         self.process[roi][act]._store(
@@ -69,18 +103,6 @@ class ActivityCounter(object):
                 "region_id": roi, "type": "activity", "activity": act
             }
         )
-
-    def continuous_update(self):
-        while not rospy.is_shutdown():
-            cur_date = datetime.date.fromtimestamp(rospy.Time.now().secs)
-            if (cur_date - self._last_learning_date) >= datetime.timedelta(days=1):
-                rospy.loginfo("Updating activity processes for each region...")
-                is_successful = self.learn_activity_patterns(self._last_learning_date)
-                if is_successful or (
-                    cur_date - self._last_learning_date
-                ) >= datetime.timedelta(days=2):
-                    self._last_learning_date += datetime.timedelta(days=1)
-            rospy.sleep(3600)
 
     # scale might not be needed
     def retrieve_from_to(self, start_time, end_time, use_upper_confidence=False, scale=False):
@@ -128,8 +150,7 @@ class ActivityCounter(object):
 
 if __name__ == '__main__':
     rospy.init_node("activity_counter")
-    ac = ActivityCounter("ferdi_test", periodic_cycle=60)
-    ac._last_learning_date = datetime.date(2016, 10, 27)
+    ac = ActivityCounter("poisson_activity", periodic_cycle=60, update_every=10)
     ac.load_from_db()
     ac.continuous_update()
     rospy.spin()

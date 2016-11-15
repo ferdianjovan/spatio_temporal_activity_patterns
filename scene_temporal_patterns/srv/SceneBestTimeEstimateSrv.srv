@@ -1,0 +1,8 @@
+time start_time
+time end_time
+int32 number_of_estimates
+bool upper_bound  # upper bound confidence of people rate 
+---
+time[] times
+string[] region_ids
+float64[] estimates

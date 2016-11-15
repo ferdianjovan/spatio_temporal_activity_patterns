@@ -1,24 +1,22 @@
 #!/usr/bin/env python
 
-import time
-import yaml
+import copy
 import rospy
-import datetime
 import numpy as np
-import cPickle as pickle
-from skeleton_tracker.msg import SkeletonComplete
+from activity_data.msg import HumanActivities
+from region_observation.util import get_soma_info
 from mongodb_store.message_store import MessageStoreProxy
+from region_observation.util import create_line_string, is_intersected
 from region_observation.observation_proxy import RegionObservationProxy
-from region_observation.util import create_line_string, is_intersected, get_soma_info
 
 
-class DailyActivityRegionCount(object):
+class ActivityRegionCount(object):
 
     def __init__(
-        self, date, config, window=rospy.Duration(600),
-        increment=rospy.Duration(60)
+        self, config, window=rospy.Duration(600), increment=rospy.Duration(60)
     ):
-        self.date = date
+        self._total_activities = 0
+        self._start_time = rospy.Time.now()
         self.time_window = window
         self.time_increment = increment
         self._is_activity_received = True
@@ -28,113 +26,137 @@ class DailyActivityRegionCount(object):
         self.obs_proxy = RegionObservationProxy(self.map, config)
         # activity related
         self._db = MessageStoreProxy(
-            collection=rospy.get_param("~skeleton_collection", "people_skeleton")
+            collection=rospy.get_param(
+                "~activity_collection", "activity_learning"
+            )
         )
-        self._activity_path = rospy.get_param(
-            "~activity_learning_path", "/home/fxj345/SkeletonDataset/Learning/accumulate_data"
-        )
-        skeletons = self._get_skeletons_from_db(date)
-        activities = self._get_activities_from_file(date)
-        activities_per_roi = self.group_per_region(activities, skeletons)
-        self.activity_count_per_roi = dict()
-        for roi, activities in activities_per_roi.iteritems():
-            rospy.loginfo("Calculating number of activities in region %s" % roi)
-            self.activity_count_per_roi[
-                roi
-            ] = self._group_activities_within_region(activities, roi)
 
-    def _get_skeletons_from_db(self, date):
-        rospy.loginfo("Getting skeleton details for date: %s" % str(self.date))
-        skeletons = dict()
-        query = {
-            "date": str(date.year)+"-"+str(date.month)+"-"+str(date.day)
-        }
-        logs = self._db.query(
-            SkeletonComplete._type, query, {},
-            projection_query={"robot_data":0, "skeleton_data":0}
+    def count_activities_per_region(self):
+        rospy.loginfo("Counting activity observation...")
+        activities_per_roi = self.get_activities_per_region(
+            self.get_activities_from_mongo()
         )
-        if len(logs) > 0:
-            skeletons = {
-                log[0].uuid: (
-                    log[0].human_map_point, log[0].start_time,
-                    log[0].end_time
-                ) for log in logs
-            }
-            skeletons.update(skeletons)
-        rospy.loginfo("Number of skeletons obtained: %d" % len(skeletons))
-        return skeletons
-
-    def _get_activities_from_file(self, date):
-        rospy.loginfo("Getting activity details for date: %s" % str(self.date))
-        activities = dict()
-        date = str(date.year)+"-"+str(date.month)+"-"+str(date.day)
-        try:
-            uuids = pickle.load(open(self._activity_path+"/"+date+"/list_of_uuids.p", "r"))
-            activities = yaml.load(
-                open(
-                    self._activity_path+"/"+date+"/oLDA/gamma.dat", "r"
+        backup = copy.deepcopy(activities_per_roi)
+        activity_count_per_roi = dict()
+        if self._is_activity_received:
+            for roi, _ in self.regions.iteritems():
+                rospy.loginfo(
+                    "Calculating number of activities in region %s" % roi
                 )
-            ).split(" ")
-            activities = np.array(activities, dtype="float64")
-            num_of_activities = activities.size/len(uuids)
-            activities = activities.reshape(activities.size/num_of_activities, num_of_activities)
-            activities = [i/np.linalg.norm(i) for i in activities]
-            activities = {i[0]: i[1] for i in zip(uuids, activities)}
-        except IOError as e:
-            self._is_activity_received = False
-            rospy.logerr("Some files do not exist, giving flag...")
-        rospy.loginfo("Number of activities: %d" % len(activities))
+                activities = list()
+                if roi in activities_per_roi:
+                    activities = activities_per_roi[roi]
+                activity_count_per_roi[
+                    roi
+                ] = self.count_activities_within_time_window(activities, roi)
+        # if acts obtained then prev_seconds is dur(0), otherwise not dur(0)
+        return activity_count_per_roi, backup
+
+    def update_activities_to_mongo(self, activities, restart_start_time=True):
+        for act in activities:
+            act.temporal = True
+            self._db.update(act, message_query={"uuid": act.uuid})
+        if restart_start_time:
+            self._start_time = rospy.Time.now()
+
+    def get_activities_from_mongo(self, is_temporal=False):
+        rospy.loginfo(
+            "Getting activity details from %s collection" % rospy.get_param(
+                "~activity_collection", "activity_learning"
+            )
+        )
+        logs = self._db.query(
+            HumanActivities._type,
+            {"activity": True, "temporal": is_temporal}
+        )
+        self._is_activity_received = len(logs) > 0
+        # projection_query={"robot_data": 0, "skeleton_data": 0}
+        activities = list()
+        for log in logs:
+            activities.append(log[0])
+            if self._start_time > log[0].start_time:
+                self._start_time = log[0].start_time
+            act_len = len(log[0].topics)
+            if act_len > self._total_activities:
+                self._total_activities = act_len
         return activities
 
-    def group_per_region(self, activities, skeletons):
+    def get_activities_per_region(self, activities):
         activity_group_regions = dict()
         for roi, region in self.regions.iteritems():
-            for uuid, act in activities.iteritems():
-                skel = skeletons[uuid]
-                point = create_line_string([skel[0].x, skel[0].y])
+            for activity in activities:
+                point = create_line_string(
+                    [activity.map_point.x, activity.map_point.y]
+                )
                 if is_intersected(region, point):
                     if roi not in activity_group_regions:
-                        activity_group_regions[roi] = dict()
-                    activity_group_regions[roi].update({uuid: (act, skel)})
+                        activity_group_regions[roi] = list()
+                    activity_group_regions[roi].append(activity)
+        for roi, val in activity_group_regions.iteritems():
+            rospy.loginfo(
+                "%d activities are found in region %s" % (len(val), roi)
+            )
         return activity_group_regions
 
     def _get_activities_within_time_window(self, activities, start_time):
-        result = dict()
+        result = list()
         end_time = start_time + self.time_window
-        for uuid, act in activities.iteritems():
-            end_cond = act[1][2] >= start_time and act[1][2] < end_time
-            start_cond = act[1][1] >= start_time and act[1][1] < end_time
-            between_cond = act[1][1] < start_time and act[1][2] >= end_time
+        for act in activities:
+            if act.end_time < act.start_time:
+                rospy.logwarn(
+                    "Observed activity %s ended before it began" % act.uuid
+                )
+                continue
+            end_cond = act.end_time >= start_time and act.end_time < end_time
+            start_cond = act.start_time >= start_time and act.start_time < end_time
+            between_cond = act.start_time < start_time and act.end_time >= end_time
             if end_cond or start_cond or between_cond:
-                result.update({uuid: act})
+                result.append(act)
         return result
 
-    def _group_activities_within_region(self, activities, roi=""):
+    def count_activities_within_time_window(self, activities, roi=""):
         counts = dict()
-        start_time = rospy.Time(time.mktime(self.date.timetuple()))
-        end_time = self.date + datetime.timedelta(days=1)
-        end_time = rospy.Time(time.mktime(end_time.timetuple()))
+        start_time = self._start_time
+        end_time = rospy.Time.now()
         mid_end = start_time + self.time_window
         while mid_end <= end_time:
-            tmp_activities = self._get_activities_within_time_window(
-                activities, start_time
-            )
-            tmp_activities = [act[0] for act in tmp_activities.values()]
-            count = sum(tmp_activities)
+            tmp_activities = list()
+            count = 0
+            if len(activities) > 0:
+                tmp_activities = self._get_activities_within_time_window(
+                    activities, start_time
+                )
+                tmp_activities = np.array(
+                    [act.topics for act in tmp_activities], dtype="float64"
+                )
+                tmp_activities = [i/np.linalg.norm(i) for i in tmp_activities]
+                count = sum(tmp_activities)
             region_observations = self.obs_proxy.load_msg(
-                start_time, mid_end, minute_increment=self.time_increment.secs/60, roi=roi
+                start_time, mid_end, roi=roi,
+                minute_increment=self.time_increment.secs/60
             )
             total_observation_time = rospy.Duration(0, 0)
             for obs in region_observations:
                 total_observation_time += obs.duration
-            if len(tmp_activities) > 0 or len(region_observations) == (
+            # print "roi: %s, observation time: %d, counts: %s" % (
+            #     roi, total_observation_time.secs, str(count)
+            # )
+            exist_act = (
+                len(tmp_activities) > 0 and True not in np.isnan(count)
+            )
+            full_obs = len(region_observations) == (
                 self.time_window.secs / self.time_increment.secs
-            ):
-                tmp = total_observation_time.secs / float(self.time_window.secs)
+            )
+            if exist_act or full_obs:
+                tmp = total_observation_time.secs / float(
+                    self.time_window.secs
+                )
                 if tmp <= 0.333:
                     count *= 3
                 elif tmp > 0.333 and tmp <= 0.6777:
                     count *= 1.5
+                if not exist_act:
+                    count = [0.0 for i in range(self._total_activities)]
                 counts.update({start_time: count})
             start_time = start_time + self.time_increment
             mid_end = start_time + self.time_window
@@ -142,7 +164,5 @@ class DailyActivityRegionCount(object):
 
 
 if __name__ == '__main__':
-    rospy.init_node("test")
-    DailyActivityRegionCount(
-        datetime.datetime(2016, 10, 28, 0, 0).date(), "ferdi_test"
-    )
+    rospy.init_node("activity_region_count_test")
+    ActivityRegionCount("poisson_activity")

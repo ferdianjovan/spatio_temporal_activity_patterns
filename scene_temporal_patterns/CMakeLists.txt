@@ -1,14 +1,13 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(activity_temporal_patterns)
+project(scene_temporal_patterns)
 
 find_package(catkin REQUIRED COMPONENTS
-  # activity_simulation
-  region_observation
   rospy
-  spectral_poisson_processes
   std_msgs
   std_srvs
-  message_generation
+  region_observation
+  simple_change_detector
+  spectral_poisson_processes
 )
 
 catkin_python_setup()
@@ -19,15 +18,21 @@ catkin_python_setup()
 
 # add_message_files(
 #   FILES
-#   RegionObservationTime.msg
-#   PoissonMsg.msg
+#   Message1.msg
+#   Message2.msg
 # )
 
 add_service_files(
   FILES
-  ActivityEstimateSrv.srv
-  ActivityBestTimeEstimateSrv.srv
+  SceneEstimateSrv.srv
+  SceneBestTimeEstimateSrv.srv
 )
+
+# add_action_files(
+#   FILES
+#   Action1.action
+#   Action2.action
+# )
 
 generate_messages(
   DEPENDENCIES
@@ -40,8 +45,8 @@ generate_messages(
 
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES activity_temporal_patterns
-  CATKIN_DEPENDS region_observation rospy spectral_poisson_processes std_msgs message_runtime std_srvs
+#  LIBRARIES scene_temporal_patterns
+ CATKIN_DEPENDS region_observation rospy simple_change_detector spectral_poisson_processes std_msgs std_srvs
 #  DEPENDS system_lib
 )
 
