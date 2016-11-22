@@ -11,7 +11,7 @@
 
     <machine name="$(arg machine)" address="$(arg machine)" env-loader="$(optenv ROS_ENV_LOADER )" user="$(arg user)" default="true"/>
 
-    <node pkg="activity_temporal_patterns" type="activity_service.py" name="activity_counter" respawn="false" output="log">
+    <node pkg="activity_temporal_patterns" type="activity_service.py" name="activity_counter" respawn="false" output="screen">
         <param name="soma_config" value="$(arg soma_config)" type="string"/>
         <param name="activity_collection" value="$(arg activity_collection)" type="string"/>
         <param name="time_increment" value="$(arg time_increment)" type="int"/>

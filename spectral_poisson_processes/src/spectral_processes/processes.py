@@ -17,6 +17,8 @@ class SpectralPoissonProcesses(PeriodicPoissonProcesses):
     ):
         self._is_updated = False
         self._spectral_process = None
+        self._upper_process = None
+        self._lower_process = None
         self._update_count = 0
         self._init_cycle = periodic_cycle
         self._prime_numbers = [2, 3, 5, 7, 11]
@@ -51,48 +53,82 @@ class SpectralPoissonProcesses(PeriodicPoissonProcesses):
 
     def _fourier_reconstruct(self):
         rospy.loginfo("Spectral process reconstruction...")
+        self._spectral_process = self._fourier_reconstruction_with()
+        self._upper_process = self._fourier_reconstruction_with(
+            reconstruct_upper_confidence=True
+        )
+        self._lower_process = self._fourier_reconstruction_with(
+            reconstruct_lower_confidence=True
+        )
+        self._is_updated = False
+
+    def _fourier_reconstruction_with(
+        self, reconstruct_upper_confidence=False,
+        reconstruct_lower_confidence=False
+    ):
         start_time = self._init_time
         end_time = start_time + rospy.Duration(self.periodic_cycle*60)
         end_time = end_time + self.time_window - self.minute_increment
-        poisson = super(SpectralPoissonProcesses, self).retrieve(start_time, end_time)
+        # upper trumphs lower
+        if reconstruct_upper_confidence:
+            poisson = super(SpectralPoissonProcesses, self).retrieve(
+                start_time, end_time, use_upper_confidence=True
+            )
+        elif reconstruct_lower_confidence:
+            poisson = super(SpectralPoissonProcesses, self).retrieve(
+                start_time, end_time, use_lower_confidence=True
+            )
+        else:
+            poisson = super(SpectralPoissonProcesses, self).retrieve(
+                start_time, end_time
+            )
         keys = sorted(poisson.keys())
         rates = list()
         for key in keys:
             rates.append(poisson[key])
         rates, _ = fourier_reconstruct(rates)
-        rates = rectify_wave(rates, low_thres=Lambda().get_rate())
+        rates = rectify_wave(rates, low_thres=0.01)
         scales = super(SpectralPoissonProcesses, self).retrieve(
             start_time, end_time, scale=True
         )
         times = sorted(scales.keys())
-        self._spectral_process = PeriodicPoissonProcesses(
+        process = PeriodicPoissonProcesses(
             (self.time_window.secs)/60, (self.minute_increment.secs)/60,
             self.periodic_cycle
         )
-        self._spectral_process._init_time = self._init_time
-        self._spectral_process._prev_init = self._prev_init
-        self._spectral_process.poisson = dict()
+        process._init_time = self._init_time
+        process._prev_init = self._prev_init
+        process.poisson = dict()
         for idx, rate in enumerate(rates):
-            if rate > Lambda().get_rate():
+            if rate > 0.01:
                 lmbda = Lambda()
                 lmbda.reconstruct(rate, scales[times[idx]])
-                self._spectral_process.poisson[times[idx]] = lmbda
+                process.poisson[times[idx]] = lmbda
             else:
-                self._spectral_process.poisson[times[idx]] = Lambda()
-        self._is_updated = False
+                process.poisson[times[idx]] = Lambda()
+        return process
 
     def retrieve(
         self, start_time, end_time, use_upper_confidence=False,
         use_lower_confidence=False, scale=False
     ):
+        result = dict()
         if self._init_time is not None:
             if self._is_updated:
                 self._fourier_reconstruct()
-            return self._spectral_process.retrieve(
-                start_time, end_time, use_upper_confidence,
-                use_lower_confidence, scale
-            )
-        return dict()
+            if use_upper_confidence:
+                result = self._upper_process.retrieve(start_time, end_time)
+            elif use_lower_confidence:
+                result = self._lower_process.retrieve(start_time, end_time)
+            elif scale:
+                result = self._spectral_process.retrieve(
+                    start_time, end_time, scale=True
+                )
+            else:
+                result = self._spectral_process.retrieve(
+                    start_time, end_time
+                )
+        return result
 
     def reconstruct_periodic_cycle(self, data):
         # data = {start_time: count} ideally is as long as the original

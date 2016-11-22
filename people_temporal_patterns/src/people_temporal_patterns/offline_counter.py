@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import copy
 import rospy
 import datetime
 import numpy as np
@@ -15,6 +16,9 @@ class PeopleCounter(object):
     def __init__(self, config, window=10, increment=1, periodic_cycle=10080, with_fourier=False):
         rospy.loginfo("Starting the offline poisson reconstruction...")
         self._start_time = None
+        self.time_window = window
+        self.time_increment = increment
+        self.periodic_cycle = periodic_cycle
         # get soma-related info
         self.region_people_counter = RegionPeopleCount(config, window, increment)
         # for each roi create PoissonProcesses
@@ -100,8 +104,17 @@ class PeopleCounter(object):
                 if cond:
                     self._start_time = process._init_time
 
-    def get_rate_rate_err_per_region(self, region):
-        result = self.process[region].get_one_periodic_rate()
+    def get_rate_rate_err_per_region(self, region, with_poisson=False):
+        if with_poisson:
+            process = PeriodicPoissonProcesses(
+                self.time_window, self.time_increment, self.periodic_cycle
+            )
+            process.poisson = copy.deepcopy(self.process[region].poisson)
+            process._init_time = self.process[region]._init_time
+            process._prev_init = self.process[region]._prev_init
+            result = process.get_one_periodic_rate()
+        else:
+            result = self.process[region].get_one_periodic_rate()
         rates, lower_bounds, upper_bounds = result
         start_time = self.process[region]._init_time
         return start_time, rates, lower_bounds, upper_bounds
@@ -147,30 +160,38 @@ class PeopleCounter(object):
         start_time, original, _, _ = self.get_rate_rate_err_per_region(region)
         # num of frequency chosen is 1/10 of the length of data
         reconstruction, residue = fourier_reconstruct(original)
-        reconstruction = rectify_wave(
-            reconstruction,
-            low_thres=self.process[region].default_lambda().get_rate()
-        )
+        reconstruction = rectify_wave(reconstruction,low_thres=0.01)
         return start_time, reconstruction, original, residue
 
     def plot_poisson_per_region(self, region, with_fourier=True):
         start_time, y, low_err, up_err = self.get_rate_rate_err_per_region(region)
         if len(y) == 0:
             return
-        if not with_fourier:
-            _, reconstruction, _, _ = self.fourier_reconstruction(region)
         x = np.arange(len(y))
-        # y = map(lambda i: i*2.5, y)
-        plt.errorbar(
-            x, y, yerr=[low_err, up_err], color='b', ecolor='r',
-            fmt="-o", label="Poisson Process"
-        )
-        if not with_fourier:
-            plt.plot(
-                x, reconstruction, "-x", color="green", label="Fourier Reconstruction"
+        line = plt.plot(x, y, "-", color="b", label="Poisson Process")
+        plt.setp(line, linewidth=2)
+        up_err = np.array(up_err) + np.array(y)
+        line = plt.plot(x, up_err, "-", color="c", label="Upper Bound")
+        plt.setp(line, linewidth=2)
+        if with_fourier:
+            start_time, y, _, up_err = self.get_rate_rate_err_per_region(
+                region, True
             )
-        # plt.plot(
-        #     x, residue, "-x", color="yellow", label="Residue"
+            line = plt.plot(x, y, "-", color="r", label="Without Fourier Poisson Process")
+            plt.setp(line, linewidth=2)
+            up_err = np.array(up_err) + np.array(y)
+            line = plt.plot(x, up_err, "-", color="m", label="Without Fourier Upper Bound")
+            plt.setp(line, linewidth=2)
+        else:
+            _, reconstruction, _, _ = self.fourier_reconstruction(region)
+            line = plt.plot(
+                x, reconstruction, "-", color="green", label="Fourier Reconstruction"
+            )
+            plt.setp(line, linewidth=2)
+        # y = map(lambda i: i*2.5, y)
+        # plt.errorbar(
+        #     x, y, yerr=[low_err, up_err], color='b', ecolor='r',
+        #     fmt="-o", label="Poisson Process"
         # )
         plt.title("Poisson Process for Region %s" % region)
         # plt.title("Poisson Process of the Corridor", fontsize=40)

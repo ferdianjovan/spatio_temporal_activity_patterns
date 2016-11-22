@@ -155,13 +155,6 @@ class ActivityRegionCount(object):
                 self.time_window.secs / self.time_increment.secs
             )
             if exist_act or full_obs:
-                tmp = total_observation_time.secs / float(
-                    self.time_window.secs
-                )
-                if tmp <= 0.333:
-                    count *= 3
-                elif tmp > 0.333 and tmp <= 0.6777:
-                    count *= 1.5
                 if not exist_act:
                     count = [0.0 for i in range(self._total_activities)]
                 counts.update({start_time: count})
