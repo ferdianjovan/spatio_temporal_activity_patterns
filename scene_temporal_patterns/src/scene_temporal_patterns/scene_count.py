@@ -42,7 +42,6 @@ class SceneRegionCount(object):
                 scene_count_per_roi[
                     roi
                 ] = self.count_scenes_within_time_window(scenes, start_time, end_time, roi)
-        # if acts obtained then prev_seconds is dur(0), otherwise not dur(0)
         return scene_count_per_roi
 
     def get_scenes_from_mongo(self, start_time, end_time):
@@ -68,28 +67,45 @@ class SceneRegionCount(object):
                     if is_intersected(region, point):
                         if roi not in scene_group_regions:
                             scene_group_regions[roi] = list()
-                        scene_group_regions[roi].append(scene.header.stamp)
+                        timestamp = scene.header.stamp.secs
+                        timestamp = rospy.Time(timestamp-(timestamp%60))
+                        scene_group_regions[roi].append(timestamp)
+        for roi, timestamps in scene_group_regions.iteritems():
+            scene_group_regions[roi] = sorted(timestamps)
         return scene_group_regions
 
     def _get_scenes_within_time_window(self, scenes, start_time):
+        tmp = 0
+        init_time = start_time
         end_time = start_time + self.time_window
-        result = [1 for act in scenes if start_time >= act and act < end_time]
-        return min(self._max_count, sum(result))
+        result = list()
+        while start_time < end_time:
+            count = 0
+            for act in scenes:
+                if init_time == start_time and init_time == act:
+                    tmp += 1
+                if start_time == act:
+                    count += 1
+                elif start_time > act and count:
+                    break
+            count = min(self._max_count, count)
+            result.append(count)
+            start_time = start_time + self.time_increment
+        return sum(result), tmp
 
     def count_scenes_within_time_window(self, scenes, start_time, end_time, roi=""):
         counts = dict()
         mid_end = start_time + self.time_window
         while mid_end <= end_time:
             count = 0
-            if len(scenes) > 0:
-                count = self._get_scenes_within_time_window(scenes, start_time)
+            if len(scenes) and (mid_end >= scenes[0]):
+                count, n = self._get_scenes_within_time_window(scenes, start_time)
+                if start_time >= scenes[0]:
+                    scenes = scenes[n:]
             region_observations = self.obs_proxy.load_msg(
                 start_time, mid_end, roi=roi,
                 minute_increment=self.time_increment.secs/60
             )
-            total_observation_time = rospy.Duration(0, 0)
-            for obs in region_observations:
-                total_observation_time += obs.duration
             full_obs = len(region_observations) == (
                 self.time_window.secs / self.time_increment.secs
             )

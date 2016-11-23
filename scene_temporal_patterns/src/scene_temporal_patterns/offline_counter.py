@@ -149,4 +149,3 @@ if __name__ == '__main__':
     )
     end_time = rospy.Time(time.mktime(end_time.timetuple()))
     sc.learn_scene_patterns(start_time, end_time)
-    rospy.spin()
