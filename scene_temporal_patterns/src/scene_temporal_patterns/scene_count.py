@@ -102,13 +102,14 @@ class SceneRegionCount(object):
                 count, n = self._get_scenes_within_time_window(scenes, start_time)
                 if start_time >= scenes[0]:
                     scenes = scenes[n:]
-            region_observations = self.obs_proxy.load_msg(
-                start_time, mid_end, roi=roi,
-                minute_increment=self.time_increment.secs/60
-            )
-            full_obs = len(region_observations) == (
-                self.time_window.secs / self.time_increment.secs
-            )
+            if not count:
+                region_observations = self.obs_proxy.load_msg(
+                    start_time, mid_end, roi=roi,
+                    minute_increment=self.time_increment.secs/60
+                )
+                full_obs = len(region_observations) == (
+                    self.time_window.secs / self.time_increment.secs
+                )
             if count or full_obs:
                 counts.update({start_time: count})
             start_time = start_time + self.time_increment
