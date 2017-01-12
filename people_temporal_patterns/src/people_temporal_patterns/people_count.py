@@ -11,7 +11,11 @@ from region_observation.util import create_line_string, is_intersected, get_soma
 
 class RegionPeopleCount(object):
 
-    def __init__(self, config, window=10, increment=1):
+    def __init__(
+        self, config, window=10, increment=1,
+        max_count_per_time_increment=float("inf")
+    ):
+        self._max_count = max_count_per_time_increment
         self.time_window = window
         self.time_increment = increment
         # get regions and soma-related info
@@ -52,7 +56,6 @@ class RegionPeopleCount(object):
         end_time = start_time + rospy.Duration(self.time_window*60)
         used_trajectories = dict()
         count_per_region = dict()
-        total_observation_time = dict()
         region_observations = self.obs_proxy.load_msg(
             start_time, end_time, minute_increment=self.time_increment
         )
@@ -92,24 +95,13 @@ class RegionPeopleCount(object):
                     if trajectory not in used_trajectories[observation.region_id]:
                         used_trajectories[observation.region_id].append(trajectory)
                         count += 1
-            if observation.region_id not in total_observation_time:
-                total_observation_time[observation.region_id] = rospy.Duration(0, 0)
-            total_observation_time[observation.region_id] += observation.duration
-            if count > 0 or observation.duration.secs >= 59:
+            if count or observation.duration.secs >= 59:
                 if observation.region_id not in count_per_region.keys():
                     count_per_region[observation.region_id] = list()
+                count = min(self._max_count, count)
                 count_per_region[observation.region_id].append(count)
         results = dict()
         for roi, counts in count_per_region.iteritems():
             if sum(counts) > 0 or len(counts) == (self.time_window / self.time_increment):
-                divider = 4.0
-                multiplier = 3.0
-                threshold = self.time_window * 60
-                substractor = (self.time_window * 60) / multiplier
-                if sum(counts) > 0:
-                    while total_observation_time[roi].secs <= threshold and divider > 1.0:
-                        divider -= 1.0
-                        threshold -= substractor
-                # use multiplier, with uniform assumption
-                results[roi] = sum(counts) * (multiplier / divider)
+                results[roi] = sum(counts)
         return results

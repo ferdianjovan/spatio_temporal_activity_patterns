@@ -12,10 +12,10 @@ from spectral_processes.processes import SpectralPoissonProcesses
 from spectral_processes.util import fourier_reconstruct, rectify_wave
 
 
-class ScenePlot(object):
+class ActivityPlot(object):
 
     def __init__(self, config, window=10, increment=1, periodic_cycle=10080, with_fourier=False):
-        rospy.loginfo("Starting the offline scene temporal model reconstruction...")
+        rospy.loginfo("Starting the offline activity temporal model reconstruction...")
         self._start_time = None
         self.time_window = window
         self.time_increment = increment
@@ -27,14 +27,16 @@ class ScenePlot(object):
         rospy.loginfo("Time window is %d minute with increment %d minute" % (window, increment))
         rospy.loginfo("Creating a periodic cycle every %d minutes" % periodic_cycle)
         self.process = {roi: dict() for roi in self.regions}
-        self.load_from_db()
 
-    def load_from_db(self):
+    def load_from_db(self, roi=list()):
         rospy.loginfo("Retrieving from database...")
         is_retrieved = list()
-        for roi in self.process:
+        rois = roi
+        if rois == list():
+            rois = self.process.keys()
+        for roi in rois:
             rospy.loginfo("Retrieving for region %s..." % roi)
-            for idx in range(20):
+            for idx in range(10):
                 rospy.loginfo("Activity %d..." % idx)
                 meta = {
                     "soma_map": self.map,
@@ -137,7 +139,7 @@ class ScenePlot(object):
 
 
 if __name__ == '__main__':
-    rospy.init_node("scene_temporal_plot")
+    rospy.init_node("activity_temporal_plot")
     parser = argparse.ArgumentParser(prog=rospy.get_name())
     parser.add_argument("soma_config", help="Soma configuration")
     parser.add_argument(
@@ -157,10 +159,11 @@ if __name__ == '__main__':
         help="Model to use, Poisson (0) or Spectral Poisson(1). Default is Poisson(0)"
     )
     args = parser.parse_args()
-    system = ScenePlot(
+    system = ActivityPlot(
         args.soma_config, int(args.time_window),
         int(args.time_increment), int(args.periodic_cycle), int(args.model)
     )
     region = raw_input("Region %s: " % str(system.process.keys()))
+    system.load_from_db([region])
     activity = raw_input("Activity %s: " % str(system.process[region].keys()))
     system.plot_poisson_per_region(region, int(activity), int(args.model))

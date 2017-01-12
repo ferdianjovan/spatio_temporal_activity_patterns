@@ -20,7 +20,9 @@ class PeopleCounter(object):
         self.time_increment = increment
         self.periodic_cycle = periodic_cycle
         # get soma-related info
-        self.region_people_counter = RegionPeopleCount(config, window, increment)
+        self.region_people_counter = RegionPeopleCount(
+            config, window, increment
+        )
         # for each roi create PoissonProcesses
         rospy.loginfo("Time window is %d minute with increment %d minute" % (window, increment))
         rospy.loginfo("Creating a periodic cycle every %d minutes" % periodic_cycle)
