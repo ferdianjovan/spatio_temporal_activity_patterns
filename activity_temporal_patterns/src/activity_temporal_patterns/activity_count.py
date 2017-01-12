@@ -2,6 +2,7 @@
 
 import copy
 import rospy
+import datetime
 import numpy as np
 from activity_data.msg import HumanActivities
 from region_observation.util import get_soma_info
@@ -72,13 +73,21 @@ class ActivityRegionCount(object):
         self._is_activity_received = len(logs) > 0
         # projection_query={"robot_data": 0, "skeleton_data": 0}
         activities = list()
+        unprocessed_data = False
         for log in logs:
             activities.append(log[0])
             if self._start_time > log[0].start_time:
                 self._start_time = log[0].start_time
+                unprocessed_data = True
             act_len = len(log[0].topics)
             if act_len > self._total_activities:
                 self._total_activities = act_len
+        if unprocessed_data:
+            rospy.loginfo(
+                "There are unprocessed activities since %s." % (
+                    datetime.datetime.fromtimestamp(self._start_time.secs)
+                )
+            )
         return activities
 
     def get_activities_per_region(self, activities):
@@ -145,9 +154,9 @@ class ActivityRegionCount(object):
             total_observation_time = rospy.Duration(0, 0)
             for obs in region_observations:
                 total_observation_time += obs.duration
-            # print "roi: %s, observation time: %d, counts: %s" % (
-            #     roi, total_observation_time.secs, str(count)
-            # )
+            print "roi: %s, observation time: %d, counts: %s" % (
+                roi, total_observation_time.secs, str(count)
+            )
             exist_act = (
                 len(tmp_activities) > 0 and True not in np.isnan(count)
             )
