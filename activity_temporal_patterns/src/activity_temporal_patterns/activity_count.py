@@ -76,9 +76,20 @@ class ActivityRegionCount(object):
         unprocessed_data = False
         for log in logs:
             activities.append(log[0])
-            if self._start_time > log[0].start_time:
+            if log[0].start_time.secs > 0 and self._start_time > log[0].start_time:
                 self._start_time = log[0].start_time
                 unprocessed_data = True
+            elif log[0].start_time.secs == 0:
+                time = log[0].time.split(":")
+                date = log[0].date.split("-")
+                start_time = datetime.datetime(
+                    int(date[0]), int(date[1]), int(date[2]),
+                    int(time[0]), int(time[1]), int(time[2])
+                )
+                start_time = rospy.Time(time.mktime(start_time.timetuple()))
+                if self._start_time > start_time:
+                    self._start_time = start_time
+                    unprocessed_data = True
             act_len = len(log[0].topics)
             if act_len > self._total_activities:
                 self._total_activities = act_len
@@ -154,9 +165,9 @@ class ActivityRegionCount(object):
             total_observation_time = rospy.Duration(0, 0)
             for obs in region_observations:
                 total_observation_time += obs.duration
-            print "roi: %s, observation time: %d, counts: %s" % (
-                roi, total_observation_time.secs, str(count)
-            )
+            # print "roi: %s, observation time: %d, counts: %s" % (
+            #     roi, total_observation_time.secs, str(count)
+            # )
             exist_act = (
                 len(tmp_activities) > 0 and True not in np.isnan(count)
             )
