@@ -75,11 +75,7 @@ class ActivityRegionCount(object):
         activities = list()
         unprocessed_data = False
         for log in logs:
-            activities.append(log[0])
-            if log[0].start_time.secs > 0 and self._start_time > log[0].start_time:
-                self._start_time = log[0].start_time
-                unprocessed_data = True
-            elif log[0].start_time.secs == 0:
+            if log[0].start_time.secs == 0:
                 time = log[0].time.split(":")
                 date = log[0].date.split("-")
                 start_time = datetime.datetime(
@@ -87,9 +83,15 @@ class ActivityRegionCount(object):
                     int(time[0]), int(time[1]), int(time[2])
                 )
                 start_time = rospy.Time(time.mktime(start_time.timetuple()))
+                log[0].start_time = start_time
+                log[0].end_time = start_time + rospy.Duration(60)
                 if self._start_time > start_time:
                     self._start_time = start_time
                     unprocessed_data = True
+            elif log[0].start_time.secs > 0 and self._start_time > log[0].start_time:
+                self._start_time = log[0].start_time
+                unprocessed_data = True
+            activities.append(log[0])
             act_len = len(log[0].topics)
             if act_len > self._total_activities:
                 self._total_activities = act_len
