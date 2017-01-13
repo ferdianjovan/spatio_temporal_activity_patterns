@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import time
 import copy
 import rospy
 import datetime
@@ -76,11 +77,11 @@ class ActivityRegionCount(object):
         unprocessed_data = False
         for log in logs:
             if log[0].start_time.secs == 0:
-                time = log[0].time.split(":")
+                times = log[0].time.split(":")
                 date = log[0].date.split("-")
                 start_time = datetime.datetime(
                     int(date[0]), int(date[1]), int(date[2]),
-                    int(time[0]), int(time[1]), int(time[2])
+                    int(times[0]), int(times[1]), int(times[2])
                 )
                 start_time = rospy.Time(time.mktime(start_time.timetuple()))
                 log[0].start_time = start_time
