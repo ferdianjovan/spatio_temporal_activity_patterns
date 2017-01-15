@@ -21,30 +21,7 @@ class RegionObservationProxy(object):
         )
         self._db = MessageStoreProxy(collection=coll)
 
-    def load_dict(self, start_time, end_time, roi="", minute_increment=1):
-        # [roi[month[day[hour[minute:duration]]]]]
-        logs = self.load_msg(start_time, end_time, roi, minute_increment)
-        roi_observation = dict()
-        total_observation = rospy.Duration(0, 0)
-        for log in logs:
-            start = datetime.datetime.fromtimestamp(log.start_from.secs)
-            end = log.until + rospy.Duration(0, 1)
-            end = datetime.datetime.fromtimestamp(end.secs)
-            if end.minute - start.minute == minute_increment:
-                if log.region_id not in roi_observation:
-                    roi_observation[log.region_id] = dict()
-                if start.month not in roi_observation[log.region_id]:
-                    roi_observation[log.region_id][start.month] = dict()
-                if start.day not in roi_observation[log.region_id][start.month]:
-                    roi_observation[log.region_id][start.month][start.day] = dict()
-                if start.hour not in roi_observation[log.region_id][start.month][start.day]:
-                    roi_observation[log.region_id][start.month][start.day][start.hour] = dict()
-                key = "%s-%s" % (start.minute, end.minute)
-                roi_observation[log.region_id][start.month][start.day][start.hour][key] = log.duration
-                total_observation += log.duration
-        return roi_observation, total_observation
-
-    def load_msg(self, start_time, end_time, roi="", minute_increment=1):
+    def _load_from_mongo(self, start_time, end_time, roi=""):
         new_start = datetime.datetime.fromtimestamp(start_time.secs)
         new_start = datetime.datetime(
             new_start.year, new_start.month, new_start.day, new_start.hour,
@@ -64,7 +41,34 @@ class RegionObservationProxy(object):
         if roi != "":
             query.update({"region_id": roi})
         logs = self._db.query(Observation._type, query)
-        # rospy.loginfo("Between %s and %s, got %d region observation entries..." % (
-        #     str(start_time.secs), str(end_time.secs), len(logs)
-        # ))
-        return [log[0] for log in logs]
+        return logs
+
+    def load_msg(self, start_time, end_time, roi="", minute_increment=1):
+        logs = self._load_from_mongo(start_time, end_time, roi)
+        return [
+            log[0] for log in logs if (log[0].until-log[0].start_from) == (
+                rospy.Duration(minute_increment, 0) - rospy.Duration(0, 1)
+            )
+        ]
+
+    def load_dict(self, start_time, end_time, roi="", minute_increment=1):
+        # [roi[month[day[hour[minute:duration]]]]]
+        logs = self.load_msg(start_time, end_time, roi, minute_increment)
+        roi_observation = dict()
+        total_observation = rospy.Duration(0, 0)
+        for log in logs:
+            start = datetime.datetime.fromtimestamp(log.start_from.secs)
+            end = log.until + rospy.Duration(0, 1)
+            end = datetime.datetime.fromtimestamp(end.secs)
+            if log.region_id not in roi_observation:
+                roi_observation[log.region_id] = dict()
+            if start.month not in roi_observation[log.region_id]:
+                roi_observation[log.region_id][start.month] = dict()
+            if start.day not in roi_observation[log.region_id][start.month]:
+                roi_observation[log.region_id][start.month][start.day] = dict()
+            if start.hour not in roi_observation[log.region_id][start.month][start.day]:
+                roi_observation[log.region_id][start.month][start.day][start.hour] = dict()
+            key = "%s-%s" % (start.minute, end.minute)
+            roi_observation[log.region_id][start.month][start.day][start.hour][key] = log.duration
+            total_observation += log.duration
+        return roi_observation, total_observation
