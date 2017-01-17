@@ -195,7 +195,7 @@ class PeopleCounter(object):
         #     x, y, yerr=[low_err, up_err], color='b', ecolor='r',
         #     fmt="-o", label="Poisson Process"
         # )
-        plt.title("Poisson Process for Region %s" % region)
+        plt.title("People Poisson Process for Region %s" % region)
         # plt.title("Poisson Process of the Corridor", fontsize=40)
         start_time = datetime.datetime.fromtimestamp(start_time.secs)
         plt.xlabel(

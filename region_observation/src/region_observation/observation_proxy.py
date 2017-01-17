@@ -2,6 +2,7 @@
 
 import time
 import rospy
+import pymongo
 import datetime
 from region_observation.msg import Observation
 from mongodb_store.message_store import MessageStoreProxy
@@ -20,36 +21,35 @@ class RegionObservationProxy(object):
             (soma_map, soma_config)
         )
         self._db = MessageStoreProxy(collection=coll)
+        self._pymongo = pymongo.MongoClient(
+            rospy.get_param("mongodb_host", "localhost"),
+            rospy.get_param("mongodb_port", 62345)
+        )
 
-    def _load_from_mongo(self, start_time, end_time, roi=""):
-        new_start = datetime.datetime.fromtimestamp(start_time.secs)
-        new_start = datetime.datetime(
-            new_start.year, new_start.month, new_start.day, new_start.hour,
-            new_start.minute
-        )
-        start_time = rospy.Time(time.mktime(new_start.timetuple()))
-        new_end = datetime.datetime.fromtimestamp(end_time.secs)
-        new_end = datetime.datetime(
-            new_end.year, new_end.month, new_end.day, new_end.hour,
-            new_end.minute
-        )
-        end_time = rospy.Time(time.mktime(new_end.timetuple()))
+    def _get_query(self, start_time, end_time, roi="", minute_increment=1):
+        start_time = start_time.secs / 60
+        start_time = rospy.Time(start_time * 60)
+        end_time = end_time.secs / 60
+        end_time = rospy.Time(end_time * 60)
+        if minute_increment < 1:
+            minute_increment = 1
+        low_thres_min_incr = (minute_increment - 1) * 60
+        up_thres_min_incr = minute_increment * 60
         query = {
             "soma": self.soma_map, "soma_config": self.soma_config,
-            "start_from.secs": {"$gte": start_time.secs, "$lt": end_time.secs}
+            "start_from.secs": {"$gte": start_time.secs, "$lt": end_time.secs},
+            "$where": "(this.until.secs - this.start_from.secs) > %d && (this.until.secs - this.start_from.secs) < %d" % (
+                low_thres_min_incr, up_thres_min_incr
+            )
         }
         if roi != "":
             query.update({"region_id": roi})
-        logs = self._db.query(Observation._type, query)
-        return logs
+        return query
 
     def load_msg(self, start_time, end_time, roi="", minute_increment=1):
-        logs = self._load_from_mongo(start_time, end_time, roi)
-        return [
-            log[0] for log in logs if (log[0].until-log[0].start_from) == (
-                rospy.Duration(minute_increment, 0) - rospy.Duration(0, 1)
-            )
-        ]
+        query = self._get_query(start_time, end_time, roi, minute_increment)
+        logs = self._db.query(Observation._type, query)
+        return [log[0] for log in logs]
 
     def load_dict(self, start_time, end_time, roi="", minute_increment=1):
         # [roi[month[day[hour[minute:duration]]]]]
@@ -72,3 +72,8 @@ class RegionObservationProxy(object):
             roi_observation[log.region_id][start.month][start.day][start.hour][key] = log.duration
             total_observation += log.duration
         return roi_observation, total_observation
+
+    def is_robot_present_all_time(self, start_time, end_time, roi="", minute_increment=1):
+        query = self._get_query(start_time, end_time, roi, minute_increment)
+        total = self._pymongo.message_store.region_observation.find(query).count()
+        return ((end_time - start_time).secs / 60) == int(total)
