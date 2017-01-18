@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import copy
 import rospy
 from region_observation.util import get_soma_info
 from spectral_processes.processes import SpectralPoissonProcesses
@@ -109,7 +110,8 @@ class ActivityCounter(object):
         grand_result = dict()
         for roi, acts in self.process.iteritems():
             result = dict()
-            for act, poisson in acts.iteritems():
+            temp_acts = copy.deepcopy(acts)
+            for act, poisson in temp_acts.iteritems():
                 result.update(
                     # use upper confidence rate value
                     {act: poisson.retrieve(
