@@ -130,8 +130,12 @@ class ActivityRegionCount(object):
 
     def _get_activities_within_time_window(self, activities, start_time):
         result = list()
+        past_activities = list()
         end_time = start_time + self.time_window
         for act in activities:
+            if start_time > act.end_time:
+                past_activities.append(act)
+                continue
             if act.end_time < act.start_time:
                 rospy.logwarn(
                     "Observed activity %s ended before it began" % act.uuid
@@ -142,10 +146,11 @@ class ActivityRegionCount(object):
             between_cond = act.start_time < start_time and act.end_time >= end_time
             if end_cond or start_cond or between_cond:
                 result.append(act)
-        return result
+        return result, past_activities
 
     def count_activities_within_time_window(self, activities, roi=""):
         counts = dict()
+        past_activities = list()
         start_time = self._start_time
         end_time = rospy.Time.now()
         mid_end = start_time + self.time_window
@@ -153,34 +158,29 @@ class ActivityRegionCount(object):
             tmp_activities = list()
             count = 0
             if len(activities) > 0:
-                tmp_activities = self._get_activities_within_time_window(
+                tmp_activities, past_act = self._get_activities_within_time_window(
                     activities, start_time
                 )
                 tmp_activities = np.array(
                     [act.topics for act in tmp_activities], dtype="float64"
                 )
                 tmp_activities = [i/np.linalg.norm(i) for i in tmp_activities]
+                past_activities += past_act
+                activities = [i for i in activities if i not in past_activities]
                 count = sum(tmp_activities)
-            region_observations = self.obs_proxy.load_msg(
-                start_time, mid_end, roi=roi,
-                minute_increment=self.time_increment.secs/60
-            )
-            total_observation_time = rospy.Duration(0, 0)
-            for obs in region_observations:
-                total_observation_time += obs.duration
-            # print "roi: %s, observation time: %d, counts: %s" % (
-            #     roi, total_observation_time.secs, str(count)
-            # )
             exist_act = (
                 len(tmp_activities) > 0 and True not in np.isnan(count)
             )
-            full_obs = len(region_observations) == (
-                self.time_window.secs / self.time_increment.secs
-            )
-            if exist_act or full_obs:
-                if not exist_act:
-                    count = [0.0 for i in range(self._total_activities)]
+            if exist_act:
                 counts.update({start_time: count})
+            else:
+                full_obs = self.obs_proxy.is_robot_present_all_time(
+                    start_time, mid_end, roi=roi,
+                    minute_increment=self.time_increment.secs/60
+                )
+                if full_obs:
+                    count = [0.0 for i in range(self._total_activities)]
+                    counts.update({start_time: count})
             start_time = start_time + self.time_increment
             mid_end = start_time + self.time_window
         return counts
