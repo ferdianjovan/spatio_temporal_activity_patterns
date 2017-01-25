@@ -88,13 +88,7 @@ class PoissonProcesses(object):
         return result
 
     def _convert_time(self, start_time):
-        new_start = datetime.datetime.fromtimestamp(start_time.secs)
-        new_start = datetime.datetime(
-            new_start.year, new_start.month, new_start.day, new_start.hour,
-            new_start.minute
-        )
-        new_start = rospy.Time(time.mktime(new_start.timetuple()))
-        return new_start
+        return rospy.Time((start_time.secs/60)*60)
 
     def store_to_mongo(self, meta=dict()):
         rospy.loginfo("Storing all poisson data...")
@@ -178,8 +172,6 @@ class PeriodicPoissonProcesses(PoissonProcesses):
                 return
             delta = (start_time - self._init_time).secs % (self.minute_increment * self.periodic_cycle).secs
             start_time = self._init_time + rospy.Duration(delta, start_time.nsecs)
-            # while (start_time - self._init_time) >= (self.minute_increment * self.periodic_cycle):
-            #     start_time = start_time - (self.minute_increment * self.periodic_cycle)
         super(PeriodicPoissonProcesses, self).update(start_time, count)
 
     def _reconstruct_process(self, start_time, count):
@@ -193,8 +185,6 @@ class PeriodicPoissonProcesses(PoissonProcesses):
             start_time = rospy.Time(int(key.split("-")[0]))
             delta = (start_time - self._init_time).secs % (self.minute_increment * self.periodic_cycle).secs
             start_time = self._init_time + rospy.Duration(delta, start_time.nsecs)
-            # while (start_time - self._init_time) >= (self.minute_increment * self.periodic_cycle):
-            #     start_time = start_time - (self.minute_increment * self.periodic_cycle)
             end_time = start_time + self.time_window
             key = "%s-%s" % (start_time.secs, end_time.secs)
             self.poisson[key] = rate
@@ -209,8 +199,6 @@ class PeriodicPoissonProcesses(PoissonProcesses):
         if self._init_time is not None:
             delta = (start_time - self._init_time).secs % (self.minute_increment * self.periodic_cycle).secs
             start_time = self._init_time + rospy.Duration(delta, start_time.nsecs)
-            # while (start_time - self._init_time) >= (self.minute_increment * self.periodic_cycle):
-            #     start_time = start_time - (self.minute_increment * self.periodic_cycle)
         super(PeriodicPoissonProcesses, self)._store(start_time, meta)
 
     def retrieve_from_mongo(self, meta=dict()):

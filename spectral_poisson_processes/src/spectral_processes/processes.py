@@ -44,12 +44,7 @@ class SpectralPoissonProcesses(PeriodicPoissonProcesses):
 
     def update(self, start_time, count):
         super(SpectralPoissonProcesses, self).update(start_time, count)
-        delta_now = (start_time - self._init_time)
-        delta_periodic = self.minute_increment * (self._update_count * self.periodic_cycle)
         self._is_updated = True
-        if delta_now >= delta_periodic:
-            self._update_count += 1
-            self._fourier_reconstruct()
 
     def _fourier_reconstruct(self):
         rospy.loginfo("Spectral process reconstruction...")
@@ -114,7 +109,10 @@ class SpectralPoissonProcesses(PeriodicPoissonProcesses):
     ):
         result = dict()
         if self._init_time is not None:
-            if self._is_updated:
+            delta_now = (rospy.Time.now() - self._init_time)
+            delta_periodic = self.minute_increment * (self._update_count * self.periodic_cycle)
+            if self._is_updated and delta_now >= delta_periodic:
+                self._update_count += 1
                 self._fourier_reconstruct()
             if use_upper_confidence:
                 result = self._upper_process.retrieve(start_time, end_time)
