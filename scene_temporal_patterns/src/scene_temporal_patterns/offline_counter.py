@@ -6,7 +6,7 @@ import argparse
 import datetime
 from region_observation.util import get_soma_info
 from spectral_processes.processes import SpectralPoissonProcesses
-from scene_temporal_patterns.scene_count import SceneRegionCount
+from detection_observation.scene_count import SceneCountObservation
 
 
 class SceneCounter(object):
@@ -28,9 +28,7 @@ class SceneCounter(object):
         self.periodic_cycle = periodic_cycle
         self.time_window = rospy.Duration(window*60)
         self.time_increment = rospy.Duration(increment*60)
-        self.src = SceneRegionCount(
-            self.config, self.time_window, self.time_increment, 1
-        )
+        self.src = SceneCountObservation(self.config, self.time_increment, 1)
         rospy.loginfo(
             "Creating a periodic cycle every %d minutes" % periodic_cycle
         )
@@ -40,36 +38,25 @@ class SceneCounter(object):
             ) for roi in self.regions.keys()
         }
 
-    def learn_scene_patterns(self, start, end):
-        rospy.loginfo("Updating scene processes for each region...")
-        act_count_per_roi = self.src.count_scenes_per_region(start, end)
-        if not self.src._is_scene_received:
-            rospy.loginfo("No data received from db, return...")
-            return
-        for roi in self.process:
-            rospy.loginfo(
-                "Updating scene processes for region %s..." % roi
+    def learn_scene_pattern(self, start_time, end_time):
+        rospy.loginfo(
+            "Updating scene processes for each region from %s to %s" % (
+                datetime.datetime.fromtimestamp(start_time.secs),
+                datetime.datetime.fromtimestamp(end_time.secs)
             )
-            count_per_time = dict()
-            if roi in act_count_per_roi and len(act_count_per_roi[roi]):
-                count_per_time = act_count_per_roi[roi]
-                self._update_scene_process(roi, count_per_time)
-
-    def _update_scene_process(self, roi, count_per_time):
-        ordered = sorted(count_per_time.keys())
-        for start in ordered:
-            count = count_per_time[start]
-            self.process[roi].update(start, count)
-            self._store(roi, start)
-            # updating general starting time of the whole processes
-            cond = self.process[roi]._init_time is not None
-            cond = cond and (
-                self._start_time is None or (
-                    self._start_time > self.process[roi]._init_time
-                )
-            )
-            if cond:
-                self._start_time = self.process[roi]._init_time
+        )
+        mid_end = start_time + self.time_window
+        while start_time < end_time:
+            for roi in self.regions:
+                scenes = self.src.load_observation(start_time, mid_end, roi)
+                count = sum([scene.count for scene in scenes])
+                if count > 0 or len(scenes) == (
+                    self.time_window.secs / self.time_increment.secs
+                ):
+                    self.process[roi].update(start_time, count)
+                    self._store(roi, start_time)
+            start_time = start_time + self.time_increment
+            mid_end = start_time + self.time_window
 
     def _store(self, roi, start_time):
         self.process[roi]._store(
@@ -148,4 +135,4 @@ if __name__ == '__main__':
         int(end_time[3]), int(end_time[4])
     )
     end_time = rospy.Time(time.mktime(end_time.timetuple()))
-    sc.learn_scene_patterns(start_time, end_time)
+    sc.learn_scene_pattern(start_time, end_time)

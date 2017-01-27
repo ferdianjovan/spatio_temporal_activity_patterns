@@ -7,6 +7,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_srvs
   mongodb_store
   region_observation
+  detection_observation
   simple_change_detector
   spectral_poisson_processes
 )
@@ -47,7 +48,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES scene_temporal_patterns
- CATKIN_DEPENDS region_observation rospy simple_change_detector spectral_poisson_processes std_msgs std_srvs mongodb_store
+ CATKIN_DEPENDS region_observation rospy simple_change_detector spectral_poisson_processes std_msgs std_srvs mongodb_store detection_observation
 #  DEPENDS system_lib
 )
 
