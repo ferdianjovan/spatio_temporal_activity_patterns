@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<package>
+  <name>detection_observation</name>
+  <version>1.0.0</version>
+  <description>The detection_observation package</description>
+
+  <maintainer email="fxj345@cs.bham.ac.uk">Ferdian Jovan</maintainer>
+
+  <license>MIT</license>
+
+  <author email="fxj345@cs.bham.ac.uk">Ferdian Jovan</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>rospy</build_depend>
+  <build_depend>mongodb_store</build_depend>
+  <build_depend>region_observation</build_depend>
+  <build_depend>message_generation</build_depend>
+  <build_depend>vision_people_logging</build_depend>
+  <build_depend>simple_change_detector</build_depend>
+  <run_depend>rospy</run_depend>
+  <run_depend>mongodb_store</run_depend>
+  <run_depend>message_runtime</run_depend>
+  <run_depend>region_observation</run_depend>
+  <run_depend>vision_people_logging</run_depend>
+  <run_depend>simple_change_detector</run_depend>
+
+  <export>
+  </export>
+</package>
