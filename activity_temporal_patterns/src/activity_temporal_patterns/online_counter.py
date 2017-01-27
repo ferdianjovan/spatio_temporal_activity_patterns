@@ -14,7 +14,6 @@ class ActivityCounter(object):
         update_every=60
     ):
         rospy.loginfo("Starting activity processes...")
-        self._start_time = None
         self._max_activity_types = 15
         # for pause feature
         self._is_stop_requested = False
@@ -71,6 +70,8 @@ class ActivityCounter(object):
                         self.arc.update_activities_to_mongo(
                             activities_per_roi[roi]
                         )
+        # for offline learning better doing this
+        # self.store_to_db()
 
     def _update_activity_process(self, roi, count_per_time):
         ordered = sorted(count_per_time.keys())
@@ -85,16 +86,8 @@ class ActivityCounter(object):
                         self.time_increment.secs/60, self.periodic_cycle
                     )
                 self.process[roi][act_ind].update(start, count)
+                # for online learning better doing this
                 self._store(roi, act_ind, start)
-                # updating general starting time of the whole processes
-                cond = self.process[roi][act_ind]._init_time is not None
-                cond = cond and (
-                    self._start_time is None or (
-                        self._start_time > self.process[roi][act_ind]._init_time
-                    )
-                )
-                if cond:
-                    self._start_time = self.process[roi][act_ind]._init_time
 
     def _store(self, roi, act, start_time):
         self.process[roi][act]._store(
