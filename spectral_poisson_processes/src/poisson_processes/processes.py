@@ -33,6 +33,22 @@ class PoissonProcesses(object):
         self.minute_increment = rospy.Duration(minute_increment*60)
         self._db = MessageStoreProxy(collection=coll)
 
+    def get_lambda_at(self, start_time):
+        start_time = self._convert_time(start_time)
+        end_time = start_time + self.time_window
+        key = "%s-%s" % (start_time.secs, end_time.secs)
+        if key not in self.poisson:
+            lmbd = Lambda()
+        else:
+            lmbd = self.poisson[key]
+        return lmbd
+
+    def set_lambda_at(self, start_time, lmbd):
+        start_time = self._convert_time(start_time)
+        end_time = start_time + self.time_window
+        key = "%s-%s" % (start_time.secs, end_time.secs)
+        self.poisson[key] = lmbd
+
     def default_lambda(self):
         return Lambda()
 
@@ -164,6 +180,24 @@ class PeriodicPoissonProcesses(PoissonProcesses):
     ):
         self.periodic_cycle = periodic_cycle
         super(PeriodicPoissonProcesses, self).__init__(time_window, minute_increment, coll)
+
+    def get_lambda_at(self, start_time):
+        if self._init_time is None:
+            init_time = start_time
+        else:
+            init_time = self._init_time
+        delta = (start_time - init_time).secs % (self.minute_increment * self.periodic_cycle).secs
+        start_time = init_time + rospy.Duration(delta, start_time.nsecs)
+        return super(PeriodicPoissonProcesses, self).get_lambda_at(start_time)
+
+    def set_lambda_at(self, start_time, lmbd):
+        if self._init_time is None:
+            init_time = start_time
+        else:
+            init_time = self._init_time
+        delta = (start_time - init_time).secs % (self.minute_increment * self.periodic_cycle).secs
+        start_time = init_time + rospy.Duration(delta, start_time.nsecs)
+        return super(PeriodicPoissonProcesses, self).set_lambda_at(start_time, lmbd)
 
     def update(self, start_time, count):
         if self._init_time is not None:

@@ -35,9 +35,9 @@ class UBDCountObservation(DetectionCountObservation):
             "header.stamp.secs": {"$gte": start_time.secs, "$lt": end_time.secs},
             "$where": "this.ubd_pos.length > 0"
         }
-        project = {"header.stamp.secs":1, "ubd_pos":1}
+        project = {"header.stamp.secs": 1, "ubd_pos": 1}
         # logs = self._db.query(
-        logs = self._db.find(query, project).sort(
+        logs = self._ubd_db.find(query, project).sort(
             "header.stamp.secs", pymongo.ASCENDING
         )
         return logs
@@ -52,10 +52,10 @@ class UBDCountObservation(DetectionCountObservation):
         start_calc = rospy.Time.now()
         mid_end = start_time + self.time_increment
         while mid_end <= end_time:
-            ubds = self.get_ubd_from_mongo(start_time, mid_end)
             for roi, region in self.regions.iteritems():
                 count = 0
                 is_max_reached = False
+                ubds = self.get_ubd_from_mongo(start_time, mid_end)
                 for ubd in ubds:
                     for centroid in ubd["ubd_pos"]:
                         point = create_line_string([centroid["x"], centroid["y"]])
