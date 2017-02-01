@@ -99,7 +99,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         "-c", dest="max_count", default="1",
-        help="Desired periodic cycle (in minute). Default is one week (10080 minutes)"
+        help="Maximum counting value per time increment. Default is 1"
     )
     args = parser.parse_args()
     src = SceneCountObservation(

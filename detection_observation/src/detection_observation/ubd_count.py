@@ -27,7 +27,7 @@ class UBDCountObservation(DetectionCountObservation):
 
     def load_observation(self, start_time, end_time, roi=""):
         return super(UBDCountObservation, self).load_observation(
-            start_time, end_time, roi, "ubd"
+            start_time, end_time, roi, "upper_body"
         )
 
     def get_ubd_from_mongo(self, start_time, end_time):
@@ -85,7 +85,7 @@ class UBDCountObservation(DetectionCountObservation):
                     msg = DetectionObservation(
                         self.map, self.config, roi, start_time,
                         (mid_end-rospy.Duration(0, 1)), count,
-                        "ubd", int(self._max_count)
+                        "upper_body", int(self._max_count)
                     )
                     self._db.insert(msg)
             start_time = start_time + self.time_increment
@@ -106,7 +106,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         "-c", dest="max_count", default="1",
-        help="Desired periodic cycle (in minute). Default is one week (10080 minutes)"
+        help="Maximum counting value per time increment. Default is 1"
     )
     args = parser.parse_args()
     src = UBDCountObservation(

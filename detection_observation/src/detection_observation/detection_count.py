@@ -34,7 +34,10 @@ class DetectionCountObservation(object):
         }
         if roi != "":
             query.update({"region_id": roi})
-        if type != "":
+        if detection_type != "":
             query.update({"detection_type": detection_type})
-        logs = self._db.query(DetectionObservation._type, query)
+        logs = self._db.query(
+            DetectionObservation._type, message_query=query,
+            sort_query=[("start_time.secs", 1)]
+        )
         return [log[0] for log in logs]
