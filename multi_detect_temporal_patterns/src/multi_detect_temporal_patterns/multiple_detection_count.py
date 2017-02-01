@@ -29,7 +29,7 @@ class MultipleDetectionCountObservation(object):
         self.likelihood = yaml.load(
             open(
                 roslib.packages.get_pkg_dir(
-                    'stationary_temporal_patterns'
+                    'multi_detect_temporal_patterns'
                 ) + '/config/detectors.yaml',
                 'r'
             )

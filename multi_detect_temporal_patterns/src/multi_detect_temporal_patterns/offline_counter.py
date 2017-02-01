@@ -6,7 +6,7 @@ import argparse
 import datetime
 from region_observation.util import get_soma_info
 from spectral_processes.processes import SpectralPoissonProcesses
-from stationary_temporal_patterns.multiple_detection_count import MultipleDetectionCountObservation
+from multi_detect_temporal_patterns.multiple_detection_count import MultipleDetectionCountObservation
 
 
 class MultiDetectionCounter(object):
