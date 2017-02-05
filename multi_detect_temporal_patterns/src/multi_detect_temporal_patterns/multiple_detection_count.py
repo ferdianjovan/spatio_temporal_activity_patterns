@@ -35,6 +35,7 @@ class MultipleDetectionCountObservation(object):
             )
         )
         self.act_prob = self.calculate_detection_prob()
+        rospy.loginfo(self.act_prob)
 
     def calculate_detection_prob(self):
         result = dict()
@@ -136,7 +137,7 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
     mco = MultipleDetectionCountObservation(
-        "poisson_activity", rospy.Duration(int(args.time_increment)*60)
+        args.soma_config, rospy.Duration(int(args.time_increment)*60)
     )
     start_time = raw_input("Start time 'year month day hour minute':")
     start_time = start_time.split(" ")

@@ -11,7 +11,7 @@ class DetectionCountObservation(object):
 
     def __init__(
         self, config, increment=rospy.Duration(60),
-        max_count_per_increment=float("inf")
+        max_count_per_increment=1
     ):
         rospy.loginfo("Initiating Detection Region Counting...")
         self._max_count = max_count_per_increment

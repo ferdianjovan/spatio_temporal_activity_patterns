@@ -106,24 +106,28 @@ def get_dict_observation(msg):
 
 
 def get_soma_info(soma_config):
-    soma_service = rospy.ServiceProxy("/soma/map_info", MapInfo)
-    soma_service.wait_for_service()
-    soma_map = soma_service(1).map_name
-    rospy.loginfo("Got soma map name %s..." % soma_map)
-    # get region information from soma2
-    soma_service = rospy.ServiceProxy("/soma/query_rois", SOMAQueryROIs)
-    soma_service.wait_for_service()
-    result = soma_service(
-        query_type=0, roiconfigs=[soma_config], returnmostrecent=True
-    )
-    # create polygon for each regions
-    regions = dict()
-    for region in result.rois:
-        if region.config == soma_config and region.map_name == soma_map:
-            xs = [pose.position.x for pose in region.posearray.poses]
-            ys = [pose.position.y for pose in region.posearray.poses]
-            regions[region.id] = create_polygon(xs, ys)
-    rospy.loginfo("Total regions for configuration %s are %d" % (soma_config, len(regions.values())))
+    if soma_config == "simulation":
+        soma_map = soma_config
+        regions = {"region_simulation": None}
+    else:
+        soma_service = rospy.ServiceProxy("/soma/map_info", MapInfo)
+        soma_service.wait_for_service()
+        soma_map = soma_service(1).map_name
+        rospy.loginfo("Got soma map name %s..." % soma_map)
+        # get region information from soma2
+        soma_service = rospy.ServiceProxy("/soma/query_rois", SOMAQueryROIs)
+        soma_service.wait_for_service()
+        result = soma_service(
+            query_type=0, roiconfigs=[soma_config], returnmostrecent=True
+        )
+        # create polygon for each regions
+        regions = dict()
+        for region in result.rois:
+            if region.config == soma_config and region.map_name == soma_map:
+                xs = [pose.position.x for pose in region.posearray.poses]
+                ys = [pose.position.y for pose in region.posearray.poses]
+                regions[region.id] = create_polygon(xs, ys)
+        rospy.loginfo("Total regions for configuration %s are %d" % (soma_config, len(regions.values())))
     return regions, soma_map
 
 

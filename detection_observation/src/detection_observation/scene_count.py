@@ -15,7 +15,7 @@ class SceneCountObservation(DetectionCountObservation):
 
     def __init__(
         self, config, increment=rospy.Duration(60),
-        max_count_per_increment=float("inf")
+        max_count_per_increment=1
     ):
         rospy.loginfo("Initiating Scene Region Counting...")
         super(SceneCountObservation, self).__init__(

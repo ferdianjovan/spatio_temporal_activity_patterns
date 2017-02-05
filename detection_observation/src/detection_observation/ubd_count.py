@@ -14,7 +14,7 @@ class UBDCountObservation(DetectionCountObservation):
 
     def __init__(
         self, config, increment=rospy.Duration(60),
-        max_count_per_increment=float("inf")
+        max_count_per_increment=1
     ):
         rospy.loginfo("Initiating UBD Region Counting...")
         super(UBDCountObservation, self).__init__(
