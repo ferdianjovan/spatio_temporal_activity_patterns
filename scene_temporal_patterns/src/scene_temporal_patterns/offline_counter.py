@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
+# import yaml
 import time
 import rospy
+# import getpass
 import argparse
 import datetime
 from region_observation.util import get_soma_info
@@ -45,6 +47,8 @@ class SceneCounter(object):
                 datetime.datetime.fromtimestamp(end_time.secs)
             )
         )
+        # lmbd_evolve = {"shape": list(), "scale": list(), "rate": list()}
+        # temp_start_time = start_time
         mid_end = start_time + self.time_window
         while start_time < end_time:
             for roi in self.regions:
@@ -55,8 +59,15 @@ class SceneCounter(object):
                 ):
                     self.process[roi].update(start_time, count)
                     self._store(roi, start_time)
+                # if (start_time-temp_start_time).secs % self.time_window.secs == 0:
+                #     lmbd = self.process[roi].get_lambda_at(start_time)
+                #     lmbd_evolve["shape"].append(lmbd.shape)
+                #     lmbd_evolve["scale"].append(lmbd.scale)
+                #     lmbd_evolve["rate"].append(lmbd.get_rate())
             start_time = start_time + self.time_increment
             mid_end = start_time + self.time_window
+        # with open("/home/%s/Pictures/scene.yaml" % getpass.getuser(), 'w') as f:
+        #     f.write(yaml.dump(lmbd_evolve))
 
     def _store(self, roi, start_time):
         self.process[roi]._store(

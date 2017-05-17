@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from poisson_processes.processes import PeriodicPoissonProcesses
 from spectral_processes.processes import SpectralPoissonProcesses
 from people_temporal_patterns.people_count import RegionPeopleCount
-from spectral_processes.util import fourier_reconstruct, rectify_wave
+from spectral_processes.util import fourier_reconstruct, rectify_wave, get_xticks
 
 
 class PeopleCounter(object):
@@ -69,7 +69,11 @@ class PeopleCounter(object):
             if cond:
                 self._start_time = process._init_time
         if True in is_retrieved:
-            rospy.loginfo("Starting time is %s" % self._start_time.secs)
+            rospy.loginfo(
+                "Starting time is %s" % datetime.datetime.fromtimestamp(
+                    self._start_time.secs
+                )
+            )
         return (True in is_retrieved)
 
     def reconstruct_periodic_cycle_per_region(
@@ -160,68 +164,56 @@ class PeopleCounter(object):
 
     def fourier_reconstruction(self, region):
         start_time, original, _, _ = self.get_rate_rate_err_per_region(region)
-        # num of frequency chosen is 1/10 of the length of data
         reconstruction, residue = fourier_reconstruct(original)
         reconstruction = rectify_wave(reconstruction,low_thres=0.01)
         return start_time, reconstruction, original, residue
 
     def plot_poisson_per_region(self, region, with_fourier=True):
-        start_time, y, low_err, up_err = self.get_rate_rate_err_per_region(region)
-        if len(y) == 0:
-            return
-        x = np.arange(len(y))
-        line = plt.plot(x, y, "-", color="b", label="Poisson Process")
-        plt.setp(line, linewidth=2)
-        up_err = np.array(up_err) + np.array(y)
-        line = plt.plot(x, up_err, "-", color="c", label="Upper Bound")
-        plt.setp(line, linewidth=2)
         if with_fourier:
+            name = "Poisson-Spectral Process"
+            start_time, y, _, up_err = self.get_rate_rate_err_per_region(
+                region, False
+            )
+            if len(y) == 0:
+                return
+            x = np.arange(len(y))
+            # y = map(lambda i: i*4.5, y)
+            line = plt.plot(x, y, "-", color="b", label=name)
+            plt.setp(line, linewidth=3)
+            up_err = np.array(up_err) + np.array(y)
+            line = plt.plot(x, up_err, "-", color="r", label="Upper Bound")
+            plt.setp(line, linewidth=3)
+        else:
+            name = "Poisson Process"
             start_time, y, _, up_err = self.get_rate_rate_err_per_region(
                 region, True
             )
-            line = plt.plot(x, y, "-", color="r", label="Without Fourier Poisson Process")
-            plt.setp(line, linewidth=2)
+            if len(y) == 0:
+                return
+            x = np.arange(len(y))
+            # y = map(lambda i: i*4.5, y)
+            line = plt.plot(x, y, "-", color="b", label=name)
+            plt.setp(line, linewidth=3)
             up_err = np.array(up_err) + np.array(y)
-            line = plt.plot(x, up_err, "-", color="m", label="Without Fourier Upper Bound")
-            plt.setp(line, linewidth=2)
-        else:
-            _, reconstruction, _, _ = self.fourier_reconstruction(region)
-            line = plt.plot(
-                x, reconstruction, "-", color="green", label="Fourier Reconstruction"
-            )
-            plt.setp(line, linewidth=2)
-        # y = map(lambda i: i*2.5, y)
-        # plt.errorbar(
-        #     x, y, yerr=[low_err, up_err], color='b', ecolor='r',
-        #     fmt="-o", label="Poisson Process"
-        # )
-        plt.title("People Poisson Process for Region %s" % region)
-        # plt.title("Poisson Process of the Corridor", fontsize=40)
-        start_time = datetime.datetime.fromtimestamp(start_time.secs)
-        plt.xlabel(
-            """%d minute-period with %d minute increment and %d minute time window
-            Starting at %s""" % (
-                self.process[region].periodic_cycle,
-                self.process[region].minute_increment.secs/60,
-                self.process[region].time_window.secs/60,
-                str(start_time)
-            )
+            line = plt.plot(x, up_err, "-", color="r", label="Upper Bound")
+            plt.setp(line, linewidth=3)
+
+        plt.title(
+            "%s for Region %s, Human Trajectories" % (name, region),
+            # "%s for Region 17, Human Trajectories" % (name),
+            fontsize=30
         )
-        # plt.xlabel("One Week Period", fontsize=40)
-        # xticks = ([""] * 469) + ["Tuesday"] + ([""] * 970)
-        # xticks += ([""] * 469) + ["Wednesday"] + ([""] * 970)
-        # xticks += ([""] * 469) + ["Thursday"] + ([""] * 970)
-        # xticks += ([""] * 469) + ["Friday"] + ([""] * 970)
-        # xticks += ([""] * 469) + ["Saturday"] + ([""] * 970)
-        # xticks += ([""] * 469) + ["Sunday"] + ([""] * 970)
-        # xticks += ([""] * 469) + ["Monday"] + ([""] * 970)
-        # plt.xticks(x, xticks, rotation="horizontal", fontsize=30)
-        # plt.yticks(fontsize=30)
-        # plt.xticks([])
-        plt.ylabel("Poisson Rate")
-        # plt.ylabel("Poisson Rate", fontsize=40)
-        # plt.yticks([])
+        plt.xlabel(
+            "Periodic time with %d minute time window" % (
+                self.process[region].time_window.secs/60
+            ), fontsize=25
+        )
+        plt.xticks(
+            x, get_xticks(start_time, self.periodic_cycle),
+            rotation="horizontal", fontsize=15
+        )
+        plt.ylabel("Arrival Rate", fontsize=25)
+        plt.yticks(fontsize=15)
         plt.ylim(ymin=-1)
-        plt.legend()
-        # plt.legend(prop={'size': 40})
+        plt.legend(prop={'size': 25}, loc='best')
         plt.show()

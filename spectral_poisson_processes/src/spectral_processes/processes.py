@@ -95,7 +95,7 @@ class SpectralPoissonProcesses(PeriodicPoissonProcesses):
         process._prev_init = self._prev_init
         process.poisson = dict()
         for idx, rate in enumerate(rates):
-            if rate > 0.01:
+            if rate > 0.000001:
                 lmbda = Lambda()
                 lmbda.reconstruct(rate, scales[times[idx]])
                 process.poisson[times[idx]] = lmbda

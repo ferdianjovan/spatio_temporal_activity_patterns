@@ -1,12 +1,18 @@
 #!/usr/bin/env python
 
+# import yaml
 import time
 import rospy
+import random
+# import pickle
+# import getpass
 import argparse
 import datetime
+import numpy as np
+from scipy.stats import gamma
 from region_observation.util import get_soma_info
 from spectral_processes.processes import SpectralPoissonProcesses
-from multi_detect_temporal_patterns.multiple_detection_count import MultipleDetectionCountObservation
+from multi_detect_temporal_patterns.multiple_detection_probability import MultiDetectionProbability
 
 
 class MultiDetectionCounter(object):
@@ -28,8 +34,8 @@ class MultiDetectionCounter(object):
         self.periodic_cycle = periodic_cycle
         self.time_window = rospy.Duration(window*60)
         self.time_increment = rospy.Duration(increment*60)
-        self.mdc = MultipleDetectionCountObservation(
-            self.config, self.time_increment
+        self.mdc = MultiDetectionProbability(
+            self.config, self.time_increment, self.time_window, 1
         )
         rospy.loginfo(
             "Creating a periodic cycle every %d minutes" % periodic_cycle
@@ -47,35 +53,92 @@ class MultiDetectionCounter(object):
                 datetime.datetime.fromtimestamp(end_time.secs)
             )
         )
+        # lmbd_evolve = {"shape": list(), "scale": list(), "rate": list()}
+        # temp_start_time = start_time
         mid_end = start_time + self.time_window
+        # sums_gamma_list = list()
+        # x_sums_gamma_list = list()
+        # approx_gamma_list = list()
+        # x_approx_gamma_list = list()
         while start_time < end_time:
             for roi in self.regions:
-                detections = self.mdc.get_marginal_probability_count_within(
-                    start_time, mid_end, roi
+                lmbd = self.process[roi].get_lambda_at(start_time)
+                detections, observations = self.mdc.get_all_occurrence_likelihood_within_time(
+                    start_time, mid_end, roi=roi, alpha=lmbd.shape, beta=lmbd.scale
                 )
-                if len(detections) > 1:
-                    lmbd = self.process[roi].get_lambda_at(start_time)
-                    numerator = 0
-                    denominator = 0
-                    # Welch-Satterthwaite approx applied bayesian update
-                    for detection in detections:
-                        numerator += (lmbd.shape+detection[0]) / (
-                            (lmbd.scale+1.0)/float(detection[1])
-                        )
-                        denominator += (lmbd.shape+detection[0]) / (
-                            (lmbd.scale+1.0)/float(detection[1])
-                        )**2
-                    shape = numerator**2 / denominator
-                    scale = numerator / denominator
-                    # hacking way to trick the Lambda.update
-                    # assuming the interval is full time window.
-                    lmbd.shape = 0.0
-                    lmbd.scale = scale - 1.0
-                    self.process[roi].set_lambda_at(start_time, lmbd)
-                    self.process[roi].update(start_time, shape)
-                    self._store(roi, start_time)
+                # different way to calculate total shape and scale
+                # brute force finding approximate gamma distribution
+                acceptable_err = 0.005  # for PEAK
+                # acceptable_err = 0.01  # for AREA
+                prev_err = 1000
+                err = 1000
+                sums = 0
+                x = np.linspace(
+                    gamma.ppf(0.01, lmbd.shape, scale=1/lmbd.scale) / 2,
+                    gamma.ppf(0.99, lmbd.shape, scale=1/lmbd.scale) * 2,  100
+                )
+                beta = lmbd.scale + 1.0
+                for detection in detections:
+                    alpha = lmbd.shape + detection[0]
+                    sums += gamma.pdf(x, alpha, scale=1/beta) * detection[1]
+                max_x = x[np.where(sums == max(sums))]
+                max_y = max(sums)
+                # area = np.trapz(sums, dx=1)
+                alpha = (max_x * beta) + 1.0
+                lbeta = beta - (beta * 0.25)
+                ubeta = beta + (beta * 0.25)
+                while err > acceptable_err:
+                    beta = random.uniform(lbeta, ubeta)
+                    alpha = (max_x * beta) + 1.0
+                    y = gamma.pdf(x, alpha, scale=1/beta)
+                    nmax_y = max(y)
+                    # narea = np.trapz(y, dx=1)
+                    prev_err = err
+                    err = abs(max_y - nmax_y)
+                    # err = abs(area - narea)
+                    if err < prev_err:
+                        lbeta = beta - (beta * 0.25)
+                        ubeta = beta + (beta * 0.25)
+                rospy.loginfo(
+                    "mode: %.2f, mode's probability: %.2f, approximate's probability: %.2f, err: %.2f" % (
+                        max_x, max_y, nmax_y, err
+                    )
+                )
+                # rospy.loginfo(
+                #     "mode: %.2f, sum's area: %.2f, gamma approximate area: %.2f, err: %.2f" % (
+                #         max_x, area, narea, err
+                #     )
+                # )
+                shape = alpha
+                scale = beta
+                lmbd.shape = 0.0
+                lmbd.scale = scale - 1.0
+                self.process[roi].set_lambda_at(start_time, lmbd)
+                self.process[roi].update(start_time, shape)
+                self._store(roi, start_time)
+                # if (start_time-temp_start_time).secs % self.time_window.secs == 0:
+                #     lmbd = self.process[roi].get_lambda_at(start_time)
+                #     lmbd_evolve["shape"].append(float(lmbd.shape))
+                #     lmbd_evolve["scale"].append(float(lmbd.scale))
+                #     lmbd_evolve["rate"].append(float(lmbd.get_rate()))
+                #     sums_gamma_list.append(sums)
+                #     x_sums_gamma_list.append(x)
+                #     approx_gamma_list.append(y)
+                #     x_approx_gamma_list.append(x)
             start_time = start_time + self.time_increment
             mid_end = start_time + self.time_window
+        # with open("/home/%s/Pictures/multi-detect.yaml" % getpass.getuser(), 'w') as f:
+        #     f.write(yaml.dump(lmbd_evolve))
+        # with open(
+        #     "/home/%s/Pictures/multi-detect_sums-evolution.p" % getpass.getuser(), 'w'
+        # ) as f:
+        #     pickle.dump(
+        #         {
+        #             "sums": sums_gamma_list, "approx": approx_gamma_list,
+        #             "x_sums": x_sums_gamma_list, "x_approx": x_approx_gamma_list
+        #         },
+        #         f, pickle.HIGHEST_PROTOCOL
+        #     )
 
     def _store(self, roi, start_time):
         self.process[roi]._store(

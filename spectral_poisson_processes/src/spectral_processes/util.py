@@ -13,6 +13,32 @@ _lock = threading.Lock()
 _avg_acc_per_cycle = dict()
 
 
+def get_xticks(start_time, periodic_cycle=10080):
+    xticks = list()
+    # Daily periodic
+    if periodic_cycle == 1440:
+        periodic_cycle *= 60
+        start = (start_time.secs / periodic_cycle) * periodic_cycle
+        step = start_time.secs
+        counter = 0
+        while start <= (
+            ((start_time.secs / periodic_cycle) * periodic_cycle) + 2*periodic_cycle
+        ):
+            if start >= start_time.secs and start <= (start_time.secs + periodic_cycle):
+                if counter < 10:
+                    text = "0%d:00" % counter
+                else:
+                    text = "%d:00" % counter
+                temp = ([""] * ((start - step) / 60)) + [text]
+                xticks.extend(temp)
+                step = start
+            elif start > (start_time.secs + periodic_cycle):
+                break
+            start += 3600
+            counter = (counter + 1) % 24
+    return xticks
+
+
 def rectify_wave(wave, up_thres=None, low_thres=None):
     for ind, val in enumerate(wave):
         if low_thres is not None and val < low_thres:

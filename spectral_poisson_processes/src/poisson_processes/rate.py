@@ -29,8 +29,6 @@ class Lambda(object):
             return -1.0
 
     def get_rate(self):
-        if self._gamma_map > 100:
-            print self._gamma_map, self.upper_end(), self.scale, self.shape
         return self._gamma_map
 
     def upper_end(self):
