@@ -1,3 +1,3 @@
-activity: 0.3013888888888889
+activity: 0.294578853046595
 detectors:
-  scene: {tn: 0.4, tp: 1.0}
+  scene: {tn: 0.856, tp: 0.398}

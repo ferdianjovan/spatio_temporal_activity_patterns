@@ -1,0 +1,16 @@
+<launch>
+    <arg name="soma_config"/>
+    <arg name="time_increment" default="1"/>
+    <arg name="max_count_per_increment" default="1"/>
+    
+    <arg name="machine" default="localhost" />
+    <arg name="user" default="" />
+
+    <machine name="$(arg machine)" address="$(arg machine)" env-loader="$(optenv ROS_ENV_LOADER )" user="$(arg user)" default="true"/>
+
+    <node pkg="detection_observation" type="online_observation.py" name="sensor_detection_counter" respawn="false" output="log">
+        <param name="soma_config" value="$(arg soma_config)" type="string"/>
+        <param name="time_increment" value="$(arg time_increment)" type="int"/>
+        <param name="max_count_per_increment" value="$(arg max_count_per_increment)" type="int"/>
+    </node>
+</launch>

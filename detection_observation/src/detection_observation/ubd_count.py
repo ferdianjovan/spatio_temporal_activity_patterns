@@ -67,6 +67,10 @@ class UBDCountObservation(DetectionCountObservation):
                     if is_max_reached:
                         break
                 count = min(self._max_count, count)
+                robot_pose = self.obs_proxy.avg_robot_pose(
+                    start_time, mid_end, roi=roi,
+                    minute_increment=self.time_increment.secs/60
+                )
                 if not count:
                     full_obs = self.obs_proxy.is_robot_present_all_time(
                         start_time, mid_end, roi=roi,
@@ -87,7 +91,14 @@ class UBDCountObservation(DetectionCountObservation):
                         (mid_end-rospy.Duration(0, 1)), count,
                         "upper_body", int(self._max_count)
                     )
-                    self._db.insert(msg)
+                    self._db.insert(
+                        msg, {
+                            "robot_pose": [
+                                sum(zip(*robot_pose)[0]) / float(len(robot_pose)),
+                                sum(zip(*robot_pose)[1]) / float(len(robot_pose))
+                            ]
+                        }
+                    )
             start_time = start_time + self.time_increment
             mid_end = start_time + self.time_increment
         end_calc = rospy.Time.now()

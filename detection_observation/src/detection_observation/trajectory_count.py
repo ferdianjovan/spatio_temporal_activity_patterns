@@ -5,39 +5,48 @@ import rospy
 import argparse
 import datetime
 from detection_observation.msg import DetectionObservation
-from simple_change_detector.msg import ChangeDetectionMsg
-from mongodb_store.message_store import MessageStoreProxy
+from human_trajectory.trajectories import OfflineTrajectories
 from detection_observation.detection_count import DetectionCountObservation
 from region_observation.util import create_line_string, is_intersected
 
 
-class SceneCountObservation(DetectionCountObservation):
+class TrajectoryCountObservation(DetectionCountObservation):
 
     def __init__(
         self, config, increment=rospy.Duration(60),
         max_count_per_increment=1
     ):
-        rospy.loginfo("Initiating Scene Region Counting...")
-        super(SceneCountObservation, self).__init__(
+        rospy.loginfo("Initiating Trajectory Region Counting...")
+        super(TrajectoryCountObservation, self).__init__(
             config, increment, max_count_per_increment
         )
-        self._scene_db = MessageStoreProxy(collection="change_detection")
 
     def load_observation(self, start_time, end_time, roi=""):
-        return super(SceneCountObservation, self).load_observation(
-            start_time, end_time, roi, "scene"
+        return super(TrajectoryCountObservation, self).load_observation(
+            start_time, end_time, roi, "trajectory"
         )
 
-    def get_scenes_from_mongo(self, start_time, end_time):
-        logs = self._scene_db.query(
-            ChangeDetectionMsg._type,
-            {"header.stamp.secs": {"$gte": start_time.secs, "$lt": end_time.secs}}
-        )
-        return [log[0] for log in logs]
+    def get_trajectory_from_mongo(self, start_time, end_time):
+        query = {"$or": [
+            {"end_time.secs": {
+                "$gte": start_time.secs, "$lt": end_time.secs
+            }},
+            {"start_time.secs": {
+                "$gte": start_time.secs, "$lt": end_time.secs
 
-    def store_scene_observation_per_time_increment(self, start_time, end_time):
+            }},
+            {
+                "start_time.secs": {"$lt": start_time.secs},
+                "end_time.secs": {"$gte": end_time.secs}
+            }
+        ]}
+        trajectory_db = OfflineTrajectories(query, size=10000)
+        logs = [traj.get_trajectory_message() for traj in trajectory_db.traj.values()]
+        return logs
+
+    def store_trajectory_observation_per_time_increment(self, start_time, end_time):
         rospy.loginfo(
-            "Storing scene observation from %s to %s" % (
+            "Storing trajectory observation from %s to %s" % (
                 str(datetime.datetime.fromtimestamp(start_time.secs)),
                 str(datetime.datetime.fromtimestamp(end_time.secs))
             )
@@ -45,19 +54,19 @@ class SceneCountObservation(DetectionCountObservation):
         start_calc = rospy.Time.now()
         mid_end = start_time + self.time_increment
         while mid_end <= end_time:
-            scenes = self.get_scenes_from_mongo(start_time, mid_end)
             for roi, region in self.regions.iteritems():
                 count = 0
-                is_max_reached = False
-                for scene in scenes:
-                    for centroid in scene.object_centroids:
-                        point = create_line_string([centroid.x, centroid.y])
-                        if is_intersected(region, point):
-                            count += 1
-                        if count >= self._max_count:
-                            is_max_reached = True
-                            break
-                    if is_max_reached:
+                trajectories = self.get_trajectory_from_mongo(start_time, mid_end)
+                for trajectory in trajectories:
+                    points = [
+                        [
+                            pose.pose.position.x, pose.pose.position.y
+                        ] for pose in trajectory.trajectory
+                    ]
+                    points = create_line_string(points)
+                    if is_intersected(region, points):
+                        count += 1
+                    if count >= self._max_count:
                         break
                 count = min(self._max_count, count)
                 robot_pose = self.obs_proxy.avg_robot_pose(
@@ -82,13 +91,13 @@ class SceneCountObservation(DetectionCountObservation):
                     msg = DetectionObservation(
                         self.map, self.config, roi, start_time,
                         (mid_end-rospy.Duration(0, 1)), count,
-                        "scene", int(self._max_count)
+                        "trajectory", int(self._max_count)
                     )
                     self._db.insert(
                         msg, {
                             "robot_pose": [
                                 sum(zip(*robot_pose)[0]) / float(len(robot_pose)),
-                                sum(zip(*robot_pose)[1]) / float(len(robot_pose)),
+                                sum(zip(*robot_pose)[1]) / float(len(robot_pose))
                             ]
                         }
                     )
@@ -101,7 +110,7 @@ class SceneCountObservation(DetectionCountObservation):
 
 
 if __name__ == '__main__':
-    rospy.init_node("scene_counter")
+    rospy.init_node("trajectory_counter")
     parser = argparse.ArgumentParser(prog=rospy.get_name())
     parser.add_argument("soma_config", help="Soma configuration")
     parser.add_argument(
@@ -113,7 +122,7 @@ if __name__ == '__main__':
         help="Maximum counting value per time increment. Default is 1"
     )
     args = parser.parse_args()
-    src = SceneCountObservation(
+    src = TrajectoryCountObservation(
         args.soma_config, increment=rospy.Duration(int(args.time_increment)*60),
         max_count_per_increment=float(args.max_count)
     )
@@ -131,4 +140,4 @@ if __name__ == '__main__':
         int(end_time[3]), int(end_time[4])
     )
     end_time = rospy.Time(time.mktime(end_time.timetuple()))
-    src.store_scene_observation_per_time_increment(start_time, end_time)
+    src.store_trajectory_observation_per_time_increment(start_time, end_time)
