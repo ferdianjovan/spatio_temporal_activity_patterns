@@ -11,8 +11,8 @@ class Lambda(object):
         self.confidence_rate = confidence_rate
 
     def reset(self):
-        self.scale = 1.0
-        self.shape = 1.1
+        self.scale = 0.01
+        self.shape = 1.01
         self._gamma_map = self._gamma_mode(self.shape, self.scale)
         self._gamma_mean = gamma.mean(self.shape, scale=1/float(self.scale))
 

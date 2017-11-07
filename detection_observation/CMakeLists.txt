@@ -46,14 +46,15 @@ include_directories(
 ## Install ##
 #############
 
-# install(PROGRAMS
-#   scripts/my_python_script
-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+install(PROGRAMS
+  scripts/online_observation.py
+  src/ubd_count.py
+  src/scene_count.py
+  src/trajectory_count.py
+  src/simulate_count.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
-## Mark other files for installation (e.g. launch and bag files, etc.)
-# install(FILES
-#   # myfile1
-#   # myfile2
-#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-# )
+install(DIRECTORY launch
+    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
