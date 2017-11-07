@@ -46,7 +46,7 @@ class DetectionCounter(object):
 
 if __name__ == '__main__':
     rospy.init_node("sensor_detection_counter")
-    sensor_counter = Observation(
+    sensor_counter = DetectionCounter(
         rospy.get_param("~soma_config", "poisson_activity"),
         increment=rospy.Duration(rospy.get_param("~time_increment", 1)*60),
         max_count_per_increment=rospy.get_param("~max_count_per_increment", 1)
