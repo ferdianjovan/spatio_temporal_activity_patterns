@@ -64,8 +64,8 @@ class OfflineRegionObservation(object):
             )
             self._db.insert(
                 msg, {"average_robot_pose": [
-                    avg_robot_pose[0][0] / float(avg_robot_pose[1],
-                    avg_robot_pose[0][1] / float(avg_robot_pose[1],
+                    avg_robot_pose[0][0] / float(avg_robot_pose[1]),
+                    avg_robot_pose[0][1] / float(avg_robot_pose[1]),
                 ]}
             )
 
