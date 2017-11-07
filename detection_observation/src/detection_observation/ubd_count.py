@@ -56,11 +56,15 @@ class UBDCountObservation(DetectionCountObservation):
                 count = 0
                 is_max_reached = False
                 ubds = self.get_ubd_from_mongo(start_time, mid_end)
+                robot_pose = list()
                 for ubd in ubds:
                     for centroid in ubd["ubd_pos"]:
                         point = create_line_string([centroid["x"], centroid["y"]])
                         if is_intersected(region, point):
                             count += 1
+                            robot_pose.append([
+                                ubd.robot.position.x, ubd.robot.position.y
+                            ])
                         if count >= self._max_count:
                             is_max_reached = True
                             break
@@ -76,6 +80,11 @@ class UBDCountObservation(DetectionCountObservation):
                         start_time, mid_end, roi=roi,
                         minute_increment=self.time_increment.secs/60
                     )
+                    if full_obs:
+                        robot_pose = self.obs_proxy.avg_robot_pose(
+                            start_time, mid_end, roi=roi,
+                            minute_increment=self.time_increment.secs/60
+                        )
                 if count or full_obs:
                     rospy.loginfo(
                         "Roi %s has %d detection at %s-%s" % (
@@ -91,14 +100,17 @@ class UBDCountObservation(DetectionCountObservation):
                         (mid_end-rospy.Duration(0, 1)), count,
                         "upper_body", int(self._max_count)
                     )
-                    self._db.insert(
-                        msg, {
-                            "robot_pose": [
-                                sum(zip(*robot_pose)[0]) / float(len(robot_pose)),
-                                sum(zip(*robot_pose)[1]) / float(len(robot_pose))
-                            ]
-                        }
-                    )
+                    if len(robot_pose):
+                        self._db.insert(
+                            msg, {
+                                "robot_pose": [
+                                    sum(zip(*robot_pose)[0]) / float(len(robot_pose)),
+                                    sum(zip(*robot_pose)[1]) / float(len(robot_pose)),
+                                ]
+                            }
+                        )
+                    else:
+                        self._db.insert(msg, {"robot_pose": []})
             start_time = start_time + self.time_increment
             mid_end = start_time + self.time_increment
         end_calc = rospy.Time.now()
