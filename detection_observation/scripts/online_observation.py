@@ -28,7 +28,7 @@ class DetectionCounter(object):
         rospy.loginfo("Start counting and storing sensor detections...")
         rospy.Timer(self.count_and_store, self.time_increment)
 
-    def count_and_store(self):
+    def count_and_store(self, event):
         end_time = rospy.Time(
             ((rospy.Time.now().secs / 60) * 60)
         )
