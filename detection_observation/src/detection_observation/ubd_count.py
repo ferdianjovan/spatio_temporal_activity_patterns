@@ -63,7 +63,7 @@ class UBDCountObservation(DetectionCountObservation):
                         if is_intersected(region, point):
                             count += 1
                             robot_pose.append([
-                                ubd.robot.position.x, ubd.robot.position.y
+                                ubd["robot"]["position"]["x"], ubd["robot"]["position"]["y"]
                             ])
                         if count >= self._max_count:
                             is_max_reached = True
