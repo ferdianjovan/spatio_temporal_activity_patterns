@@ -7,6 +7,8 @@
 
     <arg name="region_observation_online" default="true"/>
 
+    <arg name="max_count_per_increment" default="1"/>
+
     <arg name="with_logging_manager" default="false"/>
     <arg name="path_visualisation" default="false"/>
     <arg name="online_construction" default="true"/>
@@ -54,6 +56,15 @@
         <arg name="soma_config" value="$(arg soma_config)"/>
         <arg name="time_increment" value="$(arg time_increment)"/>
         <arg name="region_observation_online" value="$(arg region_observation_online)"/>
+    </include>
+
+    <!-- Detection Observation - fixed -->
+    <include file="$(find detection_observation)/launch/detection_observation.launch">
+        <arg name="machine" value="$(arg machine)"/>
+        <arg name="user" value="$(arg user)"/>
+        <arg name="soma_config" value="$(arg soma_config)"/>
+        <arg name="time_increment" value="$(arg time_increment)"/>
+        <arg name="max_count_per_increment" value="$(arg max_count_per_increment)"/>
     </include>
 
     <!-- People Temporal Patterns -->

@@ -35,7 +35,10 @@ class UBDCountObservation(DetectionCountObservation):
             "header.stamp.secs": {"$gte": start_time.secs, "$lt": end_time.secs},
             "$where": "this.ubd_pos.length > 0"
         }
-        project = {"header.stamp.secs": 1, "ubd_pos": 1}
+        project = {
+            "header.stamp.secs": 1, "ubd_pos": 1, "robot.position.x":1,
+            "robot.position.y":1
+        }
         # logs = self._db.query(
         logs = self._ubd_db.find(query, project).sort(
             "header.stamp.secs", pymongo.ASCENDING
