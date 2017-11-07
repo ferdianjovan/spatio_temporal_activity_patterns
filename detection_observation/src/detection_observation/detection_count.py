@@ -40,4 +40,5 @@ class DetectionCountObservation(object):
             DetectionObservation._type, message_query=query,
             sort_query=[("start_time.secs", 1)]
         )
-        return [log[0] for log in logs]
+        # return [log[0] for log in logs]
+        return logs

@@ -1,4 +1,4 @@
-activity: 0.30044802867383513
+activity: 0.30078405017921145
 detectors:
-  negative: {scene: 0.45, 'scene,scene2': 0.0, scene2: 0.45}
-  positive: {scene: 0.0, 'scene,scene2': 1.0, scene2: 0.0}
+  negative: {scene: 0.0, 'scene,scene2': 0.0, scene2: 0.0}
+  positive: {scene: 0.033, 'scene,scene2': 0.034, scene2: 0.033}
