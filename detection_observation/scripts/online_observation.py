@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import threading
+
 import rospy
 from detection_observation.ubd_count import UBDCountObservation
 from detection_observation.scene_count import SceneCountObservation
@@ -33,15 +35,33 @@ class DetectionCounter(object):
             ((rospy.Time.now().secs / 60) * 60)
         )
         start_time = end_time - self.time_increment
-        self.scene_counter.store_scene_observation_per_time_increment(
-            start_time, end_time
+        ubd_thread = threading.Thread(
+            target=self.ubd_counter.store_ubd_observation_per_time_increment,
+            args=(start_time, end_time,)
         )
-        self.trajectory_counter.store_trajectory_observation_per_time_increment(
-            start_time, end_time
+        ubd_thread.start()
+        scene_thread = threading.Thread(
+            target=self.scene_counter.store_scene_observation_per_time_increment,
+            args=(start_time, end_time,)
         )
-        self.ubd_counter.store_ubd_observation_per_time_increment(
-            start_time, end_time
+        scene_thread.start()
+        trajectory_thread = threading.Thread(
+            target=self.trajectory_counter.store_trajectory_observation_per_time_increment,
+            args=(start_time, end_time,)
         )
+        trajectory_thread.start()
+        # self.scene_counter.store_scene_observation_per_time_increment(
+        #     start_time, end_time
+        # )
+        # self.trajectory_counter.store_trajectory_observation_per_time_increment(
+        #     start_time, end_time
+        # )
+        # self.ubd_counter.store_ubd_observation_per_time_increment(
+        #     start_time, end_time
+        # )
+        scene_thread.join()
+        trajectory_thread.join()
+        ubd_thread.join()
 
 
 if __name__ == '__main__':
