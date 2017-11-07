@@ -4,6 +4,7 @@ import time
 import rospy
 import datetime
 import threading
+from threading import Lock
 
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import Pose, Point
@@ -44,6 +45,9 @@ class OnlineRegionObservation(object):
         rospy.loginfo("Create collection db as %s..." % coll)
         self._db = MessageStoreProxy(collection=coll)
         rospy.loginfo("Subcribe to /robot_pose...")
+        # average robot pose over time
+        self._lock = Lock()
+        self._avg_robot_pose = [[0.0, 0.0], 0]
         rospy.Subscriber("/robot_pose", Pose, self._robot_cb, None, 10)
 
     def _ptu_cb(self, ptu):
@@ -51,6 +55,19 @@ class OnlineRegionObservation(object):
 
     def _robot_cb(self, pose):
         robot_sight, arr_robot_sight = robot_view_cone(pose, self._pan_orientation)
+        self._lock.acquire()
+        self._avg_robot_pose = [
+            [
+                (
+                    (self._avg_robot_pose[0][0] * self._avg_robot_pose[1]) + pose.position.x
+                ) / float(self._avg_robot_pose[1] + 1),
+                (
+                    (self._avg_robot_pose[0][1] * self._avg_robot_pose[1]) + pose.position.y
+                ) / float(self._avg_robot_pose[1] + 1)
+            ],
+            self._avg_robot_pose[1] + 1
+        ]
+        self._lock.release()
         self.draw_view_cone(arr_robot_sight)
         intersected_regions = list()
         for roi, region in self.regions.iteritems():
@@ -118,6 +135,10 @@ class OnlineRegionObservation(object):
             "Save observation within %s and %s..." % (str(start_time), str(end_time))
         )
         self._msgs = list()
+        self._lock.acquire()
+        avg_robot_pose = self._avg_robot_pose[0]
+        self._avg_robot_pose = [[0.0, 0.0], 0]
+        self._lock.release()
         for roi, duration in durations.iteritems():
             if duration > rospy.Duration(60):
                 duration = rospy.Duration(60)
@@ -125,7 +146,7 @@ class OnlineRegionObservation(object):
                 self.soma_map, self.soma_config, roi,
                 start_time, end_time, duration
             )
-            self._db.insert(msg)
+            self._db.insert(msg, {"average_robot_pose": avg_robot_pose})
             # use this to publish via a topic
             self._msgs.append(msg)
 

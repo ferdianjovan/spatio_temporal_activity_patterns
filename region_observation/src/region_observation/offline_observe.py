@@ -44,11 +44,11 @@ class OfflineRegionObservation(object):
                 end_date.year, end_date.month, end_date.day,
                 end_date.hour, end_date.minute
             )
-            durations = self.get_duration(start_date, end_date)
-            self.save_observation(durations, start_time, mid_end)
+            durations, avg_robot_pose = self.get_duration(start_date, end_date)
+            self.save_observation(durations, avg_robot_pose, start_time, mid_end)
             start_time = mid_end
 
-    def save_observation(self, durations, start_time, end_time):
+    def save_observation(self, durations, avg_robot_pose, start_time, end_time):
         end_time = end_time - rospy.Duration(0, 1)
         for roi, duration in durations.iteritems():
             rospy.loginfo(
@@ -62,7 +62,12 @@ class OfflineRegionObservation(object):
                 self.soma_map, self.soma_config, roi,
                 start_time, end_time, duration
             )
-            self._db.insert(msg)
+            self._db.insert(
+                msg, {"average_robot_pose": [
+                    avg_robot_pose[0][0] / float(avg_robot_pose[1],
+                    avg_robot_pose[0][1] / float(avg_robot_pose[1],
+                ]}
+            )
 
     def get_duration(self, start_date, end_date):
         roi_duration = dict()
@@ -70,6 +75,7 @@ class OfflineRegionObservation(object):
             "_id": {"$exists": "true"},
             "_meta.inserted_at": {"$gte": start_date, "$lt": end_date}
         }
+        avg_robot_pose = [[0.0, 0.0], 0]
         for log in self._pose_db.find(query).sort("_meta.inserted_at", 1):
             pose = Pose()
             pose.position.x = log['position']['x']
@@ -80,6 +86,13 @@ class OfflineRegionObservation(object):
             pose.orientation.z = log['orientation']['z']
             pose.orientation.w = log['orientation']['w']
             robot_sight, _ = robot_view_cone(pose, 0.0)
+            avg_robot_pose = [
+                [
+                    pose.position.x + avg_robot_pose[0][0],
+                    pose.position.y + avg_robot_pose[0][1],
+                ],
+                avg_robot_pose[1] + 1
+            ]
             for roi, region in self.regions.iteritems():
                 if is_intersected(robot_sight, region):
                     if roi not in roi_duration:
@@ -89,4 +102,4 @@ class OfflineRegionObservation(object):
         duration = dict()
         for roi, [start, end] in roi_duration.iteritems():
             duration[roi] = rospy.Duration((end - start).total_seconds())
-        return duration
+        return duration, avg_robot_pose

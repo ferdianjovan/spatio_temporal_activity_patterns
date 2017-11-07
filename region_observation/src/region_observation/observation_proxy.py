@@ -77,3 +77,11 @@ class RegionObservationProxy(object):
         query = self._get_query(start_time, end_time, roi, minute_increment)
         total = self._pymongo.message_store.region_observation.find(query).count()
         return ((end_time - start_time).secs / 60) == int(total)
+
+    def avg_robot_pose(self, start_time, end_time, roi="", minute_increment=1)
+        poses = list()
+        query = self._get_query(start_time, end_time, roi, minute_increment)
+        logs = self._pymongo.message_store.region_observation.find(query)
+        for log in logs:
+            poses.append(log["_meta"]["average_robot_pose"])
+        return poses
