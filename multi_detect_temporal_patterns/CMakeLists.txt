@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   roslib
   rospy
   spectral_poisson_processes
+  strands_navigation_msgs
 )
 
 catkin_python_setup()
@@ -57,6 +58,7 @@ catkin_package(
   roslib
   rospy
   spectral_poisson_processes
+  strands_navigation_msgs
 #  DEPENDS system_lib
 )
 
