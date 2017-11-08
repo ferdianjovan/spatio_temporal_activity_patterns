@@ -30,7 +30,7 @@ class SimulateCountObservation(object):
         self.det_prob, self.sensor_types = self.calculate_detection_prob()
         self.count_evolution = {"rate": list()}
 
-    def load_observation(self, start_time, end_time, detection_type=""):
+    def load_observation(self, start_time, end_time, detection_type="", with_meta=False):
         start_time = start_time.secs / 60
         start_time = rospy.Time(start_time * 60)
         end_time = end_time.secs / 60
@@ -47,7 +47,10 @@ class SimulateCountObservation(object):
             DetectionObservation._type, message_query=query,
             meta_query=meta, sort_query=[("start_time.secs", 1)]
         )
-        return [log[0] for log in logs]
+        if with_meta:
+            return logs
+        else:
+            return [log[0] for log in logs]
 
     def calculate_detection_prob(self):
         if self.codependent:

@@ -25,9 +25,9 @@ class UBDCountObservation(DetectionCountObservation):
             rospy.get_param("mongodb_port", 62345)
         ).message_store.upper_bodies
 
-    def load_observation(self, start_time, end_time, roi=""):
+    def load_observation(self, start_time, end_time, roi="", with_meta=False):
         return super(UBDCountObservation, self).load_observation(
-            start_time, end_time, roi, "upper_body"
+            start_time, end_time, roi, "upper_body", with_meta
         )
 
     def get_ubd_from_mongo(self, start_time, end_time):

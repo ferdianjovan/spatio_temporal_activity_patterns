@@ -21,9 +21,9 @@ class TrajectoryCountObservation(DetectionCountObservation):
             config, increment, max_count_per_increment
         )
 
-    def load_observation(self, start_time, end_time, roi=""):
+    def load_observation(self, start_time, end_time, roi="", with_meta=False):
         return super(TrajectoryCountObservation, self).load_observation(
-            start_time, end_time, roi, "trajectory"
+            start_time, end_time, roi, "trajectory", with_meta
         )
 
     def get_trajectory_from_mongo(self, start_time, end_time):

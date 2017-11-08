@@ -23,7 +23,7 @@ class DetectionCountObservation(object):
         # db
         self._db = MessageStoreProxy(collection="detection_observation")
 
-    def load_observation(self, start_time, end_time, roi="", detection_type=""):
+    def load_observation(self, start_time, end_time, roi="", detection_type="", with_meta=False):
         start_time = start_time.secs / 60
         start_time = rospy.Time(start_time * 60)
         end_time = end_time.secs / 60
@@ -40,5 +40,7 @@ class DetectionCountObservation(object):
             DetectionObservation._type, message_query=query,
             sort_query=[("start_time.secs", 1)]
         )
-        # return [log[0] for log in logs]
-        return logs
+        if with_meta:
+            return logs
+        else:
+            return [log[0] for log in logs]

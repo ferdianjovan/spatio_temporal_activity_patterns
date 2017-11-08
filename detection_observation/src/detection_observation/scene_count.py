@@ -23,9 +23,9 @@ class SceneCountObservation(DetectionCountObservation):
         )
         self._scene_db = MessageStoreProxy(collection="change_detection")
 
-    def load_observation(self, start_time, end_time, roi=""):
+    def load_observation(self, start_time, end_time, roi="", with_meta=False):
         return super(SceneCountObservation, self).load_observation(
-            start_time, end_time, roi, "scene"
+            start_time, end_time, roi, "scene", with_meta
         )
 
     def get_scenes_from_mongo(self, start_time, end_time):
