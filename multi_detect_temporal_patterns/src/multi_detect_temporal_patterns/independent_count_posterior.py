@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 
 import time
-import yaml
 import datetime
 import argparse
-from scipy.stats import nbinom, binom
+from scipy.stats import nbinom
 from shapely.geometry import Polygon, Point
 
 import rospy
-import roslib
 from strands_navigation_msgs.msg import TopologicalMap
 from multi_detect_temporal_patterns.beta_binomial import BetaBinomial
 from detection_observation.detection_count import DetectionCountObservation
@@ -54,7 +52,7 @@ class CountPosterior(object):
             rospy.sleep(0.1)
         topo_sub.unregister()
 
-    def find_closest_wp(self, robot_pose, roi):
+    def find_closest_waypoint(self, robot_pose, roi):
         possible_wps = self.sensor_model.get_possible_waypoint(roi)
         wps = [
             (
@@ -72,7 +70,7 @@ class CountPosterior(object):
         waypoint = ""
         for detector in self.sensor_model.sensors:
             obs = self.drc.load_observation(
-                start_time, end_time, roi, detector
+                start_time, end_time, roi, detector, True
             )
             observations[detector] = sum([o[0].count for o in obs])
             num_of_obs = len(obs)
@@ -81,8 +79,8 @@ class CountPosterior(object):
                     sum([o[1]["robot_pose"][0] for o in obs]) / num_of_obs,
                     sum([o[1]["robot_pose"][1] for o in obs]) / num_of_obs
                 ])
-                waypoint = self.find_closest_wp(robot_pose, roi)
-        if wp != "":
+                waypoint = self.find_closest_waypoint(robot_pose, roi)
+        if waypoint != "":
             sums = 0.0
             for occ in range(self.total_bins+1):
                 prod = nbinom.pmf(occ, alpha, beta / float(beta + 1))

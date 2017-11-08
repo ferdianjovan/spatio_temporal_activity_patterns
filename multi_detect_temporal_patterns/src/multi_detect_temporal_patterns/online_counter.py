@@ -80,7 +80,7 @@ class MultiDetectionCounter(object):
                 epoch += 1
         return alpha, beta, prev_err
 
-    def updating_temporal_patterns(self, start_time)
+    def updating_temporal_patterns(self, start_time):
         mid_end = start_time + self.time_window
         rospy.loginfo(
             "Updating multi-detection processes for each region from %s to %s" % (
@@ -101,9 +101,7 @@ class MultiDetectionCounter(object):
                 start_time, mid_end, roi=roi, alpha=lmbd.shape, beta=lmbd.scale
             )
             rospy.loginfo(
-                "Region %s has %s at %s" % (
-                    roi, obs, datetime.datetime.fromtimestamp(start_time.secs)
-                )
+                "Region %s has %s" % (roi, obs)
             )
             rospy.loginfo("Count posterior probability: %s" % str(detections))
             if len(detections):
@@ -165,8 +163,8 @@ class MultiDetectionCounter(object):
 
 
 if __name__ == '__main__':
-    rospy.init_node("multi_detection_counter")
-    sensor_counter = DetectionCounter(
+    rospy.init_node("multi_detection_counting_process")
+    process = MultiDetectionCounter(
         rospy.get_param("~soma_config", "poisson_activity"),
         rospy.get_param("~time_window", 10),
         rospy.get_param("~time_increment", 1),

@@ -1,0 +1,18 @@
+<launch>
+    <arg name="soma_config"/>
+    <arg name="time_increment" default="1"/>
+    <arg name="time_window" default="10"/>
+    <arg name="periodic_cycle" default="1440"/>
+    
+    <arg name="machine" default="localhost" />
+    <arg name="user" default="" />
+
+    <machine name="$(arg machine)" address="$(arg machine)" env-loader="$(optenv ROS_ENV_LOADER )" user="$(arg user)" default="true"/>
+
+    <node pkg="multi_detect_temporal_patterns" type="multi_sensor_service.py" name="multi_sensor_counting_process" respawn="false" output="display">
+        <param name="soma_config" value="$(arg soma_config)" type="string"/>
+        <param name="time_increment" value="$(arg time_increment)" type="int"/>
+        <param name="time_window" value="$(arg time_window)" type="int"/>
+        <param name="periodic_cycle" value="$(arg periodic_cycle)" type="int"/>
+    </node>
+</launch>
