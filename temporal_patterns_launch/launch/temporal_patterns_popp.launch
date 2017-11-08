@@ -3,7 +3,7 @@
     <arg name="soma_config"/>
     <arg name="time_increment" default="1"/>
     <arg name="time_window" default="10"/>
-    <arg name="periodic_cycle" default="10080"/>
+    <arg name="periodic_cycle" default="1440"/>
 
     <arg name="region_observation_online" default="true"/>
 
