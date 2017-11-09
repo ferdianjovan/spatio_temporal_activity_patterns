@@ -135,8 +135,10 @@ class BetaBinomial():
     # beta is failures
     # i is the value of the count variable x
     def betaBinomial(self, i, n, alpha, beta):
-        j = comb(n, i, 1) * math.exp((betaln(i+alpha, n-i+beta) - betaln(alpha, beta)))
-        return j
+        result = 0.0
+        if comb(n, i, 1) != 0:
+            result = comb(n, i, 1) * math.exp((betaln(i+alpha, n-i+beta) - betaln(alpha, beta)))
+        return result
 
     def get_possible_waypoint(self, region):
         result = list()
@@ -198,14 +200,12 @@ class BetaBinomial():
 
 if __name__ == '__main__':
     # simulation or real_data, no. of sub intervals
-    # bb1 = BetaBinomial('real_data', 10)
-    # # sji, xi, sensor (str), region (str), waypoint (str)
-    # prob = bb1.prob_s_x(0, 2, 'upper_body', '2', 'ChargingPoint1')
-    # print 'Real:', prob
+    bb1 = BetaBinomial('real_data', 10)
+    # sji, xi, sensor (str), region (str), waypoint (str)
+    prob = bb1.prob_s_x(9, 2, 'scene', '9', 'WayPoint3')
+    print 'Real:', prob
     # simulation or real_data, no. of sub intervals
     bb2 = BetaBinomial('simulation', 10)
     # sji, xi, sensor (str), region (str), waypoint (str)
     prob = bb2.prob_s_x(0, 2, 'scene')
-    print 'Sim scene:', prob
-    prob = bb2.prob_s_x(0, 2, 'scene2')
     print 'Sim scene2:', prob
